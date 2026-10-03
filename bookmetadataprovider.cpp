@@ -8,6 +8,7 @@
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QTimer>
+#include <QDebug>
 
 BookMetadataProvider::BookMetadataProvider(BookDatabaseManager* dbManager, QObject *parent)
     : QObject(parent)
@@ -16,6 +17,21 @@ BookMetadataProvider::BookMetadataProvider(BookDatabaseManager* dbManager, QObje
     m_openLibrary = new OpenLibraryProvider(this);
     m_googleBooks = new GoogleBooksProvider(this);
     m_imageNetworkManager = std::make_unique<QNetworkAccessManager>(this);
+
+    connect(m_imageNetworkManager.get(), &QNetworkAccessManager::finished, this, [](QNetworkReply* reply) {
+        if (!reply) return;
+
+        int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QUrl requestUrl = reply->request().url();
+
+        qDebug() << QString("[Network Activity] URL: %1 | Status: %2")
+                        .arg(requestUrl.toString())
+                        .arg(statusCode == 0 ? "Pending/Error" : QString::number(statusCode));
+
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "   -> Error String details:" << reply->errorString();
+        }
+    });
 
     connect(m_openLibrary, &AbstractBookProvider::lookupFinished, this, &BookMetadataProvider::handlePrimarySuccess);
     connect(m_openLibrary, &AbstractBookProvider::lookupFailed, this, &BookMetadataProvider::handlePrimaryFailure);
@@ -98,6 +114,7 @@ void BookMetadataProvider::handleFallbackSuccess(const BookInfo &info, const QSt
 
 void BookMetadataProvider::handleFallbackFailure(const QString &errorMsg)
 {
+    // Pass to true so MainWindow shifts it to your console stream
     emit lookupStatusChanged(errorMsg, true);
 }
 

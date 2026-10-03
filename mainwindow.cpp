@@ -16,15 +16,29 @@ MainWindow::MainWindow(QWidget *parent)
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(centralWidget);
 
+    // 1. Scanner View Component (Fixed Top Allocation bounds)
     m_scannerView = new BarcodeScannerView(this);
-    m_scannerView->setMaximumSize(400, 240);
-    layout->addWidget(m_scannerView, 0, Qt::AlignHCenter);
+    m_scannerView->setMaximumSize(400, 220);
+    layout->addWidget(m_scannerView, 0, Qt::AlignHCenter); // Stretch factor 0 = keeps scanner small
 
+    // 2. Descriptive Footer Feedback label
     m_isbnLabel = new QLabel("Align ISBN barcode with the red laser line...", this);
     m_isbnLabel->setAlignment(Qt::AlignCenter);
-    m_isbnLabel->setWordWrap(true);
-    m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #2c3e50; padding: 10px; background: #ecf0f1;");
-    layout->addWidget(m_isbnLabel);
+    m_isbnLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50; padding: 8px; background: #ecf0f1;");
+    layout->addWidget(m_isbnLabel, 0); // Stretch factor 0 = minimal space
+
+    // 3. Bookshelf Grid Layout View (Primary Central Component)
+    m_bookshelfWidget = new BookshelfWidget(this);
+
+    // CHANGED PARAMETER: Stretch factor 1 instructs layout engine to give ALL
+    // vertical scaling footprint expansion space directly to this element panel!
+    layout->addWidget(m_bookshelfWidget, 1);
+
+    setCentralWidget(centralWidget);
+    setWindowTitle("Dynamic Library grid tracker");
+
+    // Enlarge default application launch sizing metrics to show beautiful rows out of the box
+    resize(850, 750);
 
     m_dbManager = new BookDatabaseManager(this);
     // On Windows: Maps to C:/Users/<User>/AppData/Local/<AppName>
@@ -41,13 +55,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_dbManager->initDatabase(crossPlatformDbPath);
 
     m_metadataProvider = new BookMetadataProvider(m_dbManager, this);
-
-    m_bookshelfWidget = new BookshelfWidget(this);
-    layout->addWidget(m_bookshelfWidget, 1);
-
-    setCentralWidget(centralWidget);
-    setWindowTitle("Virtual Bookshelf Tracker");
-    resize(850, 750);
 
     // --- POPULATE BOOKSHELF HISTORY ROW ON BOOT ---
     QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
@@ -82,9 +89,21 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::updateStatusLabel(const QString &text, bool isError)
 {
-    m_isbnLabel->setText(text);
-    m_isbnLabel->setStyleSheet(isError ? "font-size: 14px; font-weight: bold; color: #c0392b; padding: 15px; background: #f9ebea;"
-                                       : "font-size: 16px; font-weight: bold; color: #d35400; padding: 15px; background: #fdf2e9;");
+    if (isError) {
+        // =================================================================
+        // REDIRECT TO QDEBUG TERMINAL (CRITICAL ERROR LOG CONTEXT)
+        // =================================================================
+        qCritical() << "[Scanner System Error Alert]:\n" << text;
+        qCritical() << "==================================================";
+
+        // (Optional) Reset the label to a calm standby status text on the UI
+        m_isbnLabel->setText("Ready for next scan...");
+        m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #7f8c8d; padding: 10px; background: #f2f4f4;");
+    } else {
+        // Standard, non-error tracking feedback status flows normally on the interface
+        m_isbnLabel->setText(text);
+        m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #d35400; padding: 10px; background: #fdf2e9;");
+    }
 }
 
 void MainWindow::displayBookDetails(const BookInfo &info)

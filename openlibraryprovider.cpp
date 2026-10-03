@@ -22,13 +22,16 @@ void OpenLibraryProvider::requestMetadata(const QString &isbn)
     QNetworkRequest request((QUrl(urlString)));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setHeader(QNetworkRequest::UserAgentHeader, "Qt6ISBNBookScanner/1.0 (OpenLibrary Module)");
+    qDebug() << "[Network Request Dispatch] -> Querying Open Library API path:" << urlString;
     m_networkManager->get(request);
 }
 
 void OpenLibraryProvider::handleReply(QNetworkReply *reply)
 {
     if (reply->error() != QNetworkReply::NoError) {
-        emit lookupFailed("Open Library Network Error: " + reply->errorString());
+        // Log details here directly
+        qWarning() << "[OpenLibrary System Trace] API Connection dropped:" << reply->errorString();
+        emit lookupFailed("404"); // Forward basic flag so fallback logic triggers smoothly
         reply->deleteLater();
         return;
     }
