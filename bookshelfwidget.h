@@ -5,7 +5,7 @@
 #include <QList>
 #include "bookinfo.h"
 
-class QGridLayout; // <-- CHANGED from QHBoxLayout
+class QGridLayout;
 class QVBoxLayout;
 class QScrollArea;
 class QLabel;
@@ -21,17 +21,21 @@ public:
     void addBookToShelf(const BookInfo &info, bool prepend = true);
     void clearShelf();
 
+signals:
+    // NEW: Emitted whenever an individual book card is interactively clicked
+    void bookSelected(const BookInfo &info);
+
 protected:
-    // Automatically recalculates wrapping columns whenever the application window scales
     void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void rearrangeGrid();
     QPixmap generatePlaceholderCover(const QString &title);
 
     QWidget* m_scrollContainer;
-    QGridLayout* m_shelfGridLayout; // <-- Grid controller
-    QList<QWidget*> m_bookCards;     // Keep a tracking list of elements to handle line wrapping calculations
+    QGridLayout* m_shelfGridLayout;
+    QList<QWidget*> m_bookCards;
 };
 
 #endif // BOOKSHELFWIDGET_H

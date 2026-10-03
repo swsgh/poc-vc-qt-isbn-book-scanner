@@ -5,6 +5,7 @@
 #include "bookshelfwidget.h"
 
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QStandardPaths>
 #include <QDir>
@@ -14,40 +15,72 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     QWidget *centralWidget = new QWidget(this);
-    QVBoxLayout *layout = new QVBoxLayout(centralWidget);
+    QVBoxLayout *mainVerticalLayout = new QVBoxLayout(centralWidget);
 
-    // 1. Scanner View Component (Fixed Top Allocation bounds)
+    // 1. TOP SECTION: Scanner View Component (Fixed Top Allocation bounds)
     m_scannerView = new BarcodeScannerView(this);
     m_scannerView->setMaximumSize(400, 220);
-    layout->addWidget(m_scannerView, 0, Qt::AlignHCenter); // Stretch factor 0 = keeps scanner small
+    mainVerticalLayout->addWidget(m_scannerView, 0, Qt::AlignHCenter); // Stretch factor 0 = keeps scanner small
 
-    // 2. Descriptive Footer Feedback label
+    // 2. Descriptive Footer Feedback label (Now sits neatly right below the camera)
     m_isbnLabel = new QLabel("Align ISBN barcode with the red laser line...", this);
     m_isbnLabel->setAlignment(Qt::AlignCenter);
     m_isbnLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50; padding: 8px; background: #ecf0f1;");
-    layout->addWidget(m_isbnLabel, 0); // Stretch factor 0 = minimal space
+    mainVerticalLayout->addWidget(m_isbnLabel, 0); // Stretch factor 0 = minimal space
 
-    // 3. Bookshelf Grid Layout View (Primary Central Component)
+    // 3. BOTTOM SECTION: Bookshelf Row + Right Side Panel Container
+    QWidget *bottomRowContainer = new QWidget(this);
+    QHBoxLayout *bottomRowLayout = new QHBoxLayout(bottomRowContainer);
+    bottomRowLayout->setContentsMargins(0, 5, 0, 0); // Clean, seamless alignment
+
+    // Left side of bottom layout: Bookshelf Grid Layout View (Takes 3/4 layout footprint)
     m_bookshelfWidget = new BookshelfWidget(this);
+    bottomRowLayout->addWidget(m_bookshelfWidget, 3);
 
-    // CHANGED PARAMETER: Stretch factor 1 instructs layout engine to give ALL
-    // vertical scaling footprint expansion space directly to this element panel!
-    layout->addWidget(m_bookshelfWidget, 1);
+    // Right side of bottom layout: Dedicated Book Details Sidebar panel
+    QWidget *detailsSidebarWidget = new QWidget(this);
+    QVBoxLayout *sidebarLayout = new QVBoxLayout(detailsSidebarWidget);
+    detailsSidebarWidget->setFixedWidth(280); // Locks sidebar to a clean, readable width
+    detailsSidebarWidget->setStyleSheet("background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;");
+
+    // Add UI text elements inside the sidebar panel
+    QLabel *sidebarHeader = new QLabel("<b>📚 BOOK DETAILS</b>", this);
+    sidebarHeader->setStyleSheet("font-size: 13px; color: #7f8c8d; letter-spacing: 1px;");
+    sidebarHeader->setAlignment(Qt::AlignCenter);
+    sidebarLayout->addWidget(sidebarHeader);
+
+    m_detailTitleLabel = new QLabel("Select a book from your shelf...", this);
+    m_detailTitleLabel->setWordWrap(true);
+    m_detailTitleLabel->setStyleSheet("font-size: 14px; color: #2c3e50; font-weight: 500;");
+
+    m_detailAuthorLabel = new QLabel("", this);
+    m_detailAuthorLabel->setWordWrap(true);
+    m_detailAuthorLabel->setStyleSheet("font-size: 13px; color: #566573;");
+
+    m_detailIsbnLabel = new QLabel("", this);
+    m_detailIsbnLabel->setStyleSheet("font-size: 12px; color: #95a5a6; font-family: monospace;");
+
+    sidebarLayout->addWidget(m_detailTitleLabel);
+    sidebarLayout->addWidget(m_detailAuthorLabel);
+    sidebarLayout->addWidget(m_detailIsbnLabel);
+    sidebarLayout->addStretch(); // Pushes all the text up to the top of the sidebar
+
+    bottomRowLayout->addWidget(detailsSidebarWidget, 1); // Sidebar takes up remaining 1/4 width
+
+    // Connect the combined horizontal bottom shelf layout to the main layout frame
+    mainVerticalLayout->addWidget(bottomRowContainer, 1); // Receives all primary structural scaling layout footprint!
 
     setCentralWidget(centralWidget);
     setWindowTitle("Dynamic Library grid tracker");
 
     // Enlarge default application launch sizing metrics to show beautiful rows out of the box
-    resize(850, 750);
+    resize(950, 750);
 
     m_dbManager = new BookDatabaseManager(this);
-    // On Windows: Maps to C:/Users/<User>/AppData/Local/<AppName>
-    // On Android: Maps to /data/user/0/<PackageName>/files
     QString appDataFolder = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    // Windows and Android will fail to write the .db file if the folder hasn't been created yet
     QDir dir(appDataFolder);
     if (!dir.exists()) {
-        dir.mkpath("."); // Dynamically constructs the full nesting chain safely
+        dir.mkpath(".");
     }
     QString crossPlatformDbPath = QDir::cleanPath(appDataFolder + "/scanned_books.db");
     qDebug() << "[Database Info] Absolute SQL Path written to hardware:";
@@ -59,7 +92,7 @@ MainWindow::MainWindow(QWidget *parent)
     // --- POPULATE BOOKSHELF HISTORY ROW ON BOOT ---
     QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
     for (const BookInfo &book : historicalBooks) {
-        m_bookshelfWidget->addBookToShelf(book, false); // Append historically sorted data rows
+        m_bookshelfWidget->addBookToShelf(book, false);
     }
 
     // Connect functional interaction pipelines across classes
@@ -69,20 +102,22 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
 
     connect(m_dbManager, &BookDatabaseManager::bookSavedSuccessfully, this, [this](const QString &isbn) {
-        // Extract the specific book record that was just written to the database
         BookInfo freshRecord = m_dbManager->getBookByIsbn(isbn);
 
         if (freshRecord.found) {
-            // Send it to the shelf; our new logic will replace or prepend it without duplicates!
             m_bookshelfWidget->addBookToShelf(freshRecord, true);
         }
 
-        m_isbnLabel->setText(m_isbnLabel->text() + "\nLocal database cache repository successfully updated.");
+        m_isbnLabel->setText("Scan complete! Local database repository successfully updated.");
     });
 
     connect(m_dbManager, &BookDatabaseManager::databaseError, this, [this](const QString &err){
         updateStatusLabel(err, true);
     });
+
+    // --- CONNECT BOOKSHELF SELECTION TO SIDEBAR UPDATE ---
+    // Note: Verify that your BookshelfWidget class defines this 'bookSelected' signal in bookshelfwidget.h
+    connect(m_bookshelfWidget, &BookshelfWidget::bookSelected, this, &MainWindow::updateDetailsSidebar);
 
     m_scannerView->startCapture();
 }
@@ -90,36 +125,36 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::updateStatusLabel(const QString &text, bool isError)
 {
     if (isError) {
-        // =================================================================
-        // REDIRECT TO QDEBUG TERMINAL (CRITICAL ERROR LOG CONTEXT)
-        // =================================================================
         qCritical() << "[Scanner System Error Alert]:\n" << text;
         qCritical() << "==================================================";
-
-        // (Optional) Reset the label to a calm standby status text on the UI
         m_isbnLabel->setText("Ready for next scan...");
         m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #7f8c8d; padding: 10px; background: #f2f4f4;");
     } else {
-        // Standard, non-error tracking feedback status flows normally on the interface
         m_isbnLabel->setText(text);
         m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #d35400; padding: 10px; background: #fdf2e9;");
     }
 }
 
+// Triggered immediately when an active scanning cycle captures metadata
 void MainWindow::displayBookDetails(const BookInfo &info)
 {
-    QString displayTemplate = QString("📖 Title: %1\n✍️ Author(s): %2\n🔢 Code: %3\n⚙️ Source: %4")
-                                  .arg(info.title)
-                                  .arg(info.authors)
-                                  .arg(info.isbn)
-                                  .arg(info.engineSource);
-
-    m_isbnLabel->setText(displayTemplate);
+    // Minimal camera message per previous instructions
+    m_isbnLabel->setText(QString("📖 Successfully scanned: %1").arg(info.title));
     m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #1e8449; padding: 15px; background: #e8f8f5;");
+
+    // Simultaneously populate the detailed side container fields automatically on scanning
+    updateDetailsSidebar(info);
+}
+
+// Triggered when clicking a book item inside the bookshelf layout row
+void MainWindow::updateDetailsSidebar(const BookInfo &info)
+{
+    m_detailTitleLabel->setText(QString("<b>Title:</b><br>%1").arg(info.title));
+    m_detailAuthorLabel->setText(QString("<b>Author(s):</b><br>%1").arg(info.authors.isEmpty() ? "Unknown" : info.authors));
+    m_detailIsbnLabel->setText(QString("<b>ISBN:</b> %1<br><small>Source: %2</small>").arg(info.isbn).arg(info.engineSource));
 }
 
 void MainWindow::handleDatabaseConfirmation(const QString &isbn)
 {
-    // Append a quick secondary layout confirmation message
-    m_isbnLabel->setText(m_isbnLabel->text() + "\n💾 Saved securely into local archive database.");
+    m_isbnLabel->setText("Saved securely into local archive database.");
 }

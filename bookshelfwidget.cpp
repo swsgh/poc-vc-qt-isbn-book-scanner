@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QPainter>
+#include <QMouseEvent> // NEW: Required to capture mouse click events
 
 BookshelfWidget::BookshelfWidget(QWidget *parent) : QWidget(parent)
 {
@@ -38,6 +39,9 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
     QWidget *existingCard = m_scrollContainer->findChild<QWidget*>("card_" + info.isbn);
 
     if (existingCard) {
+        // Cache the newly updated BookInfo into the existing card property fields
+        existingCard->setProperty("bookData", QVariant::fromValue(info));
+
         QLabel *coverLabel = existingCard->findChild<QLabel*>("coverLabel");
         QLabel *titleLabel = existingCard->findChild<QLabel*>("titleLabel");
         QLabel *authorLabel = existingCard->findChild<QLabel*>("authorLabel");
@@ -66,8 +70,16 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
     // Build standard card elements
     QWidget *bookCard = new QWidget(m_scrollContainer);
     bookCard->setFixedSize(120, 190);
-    bookCard->setStyleSheet("QWidget { background: white; border: 1px solid #dcdde1; border-radius: 6px; }");
+    // Added a visual hover/pointer effect so users intuitively know it is clickable
+    bookCard->setStyleSheet("QWidget { background: white; border: 1px solid #dcdde1; border-radius: 6px; }"
+                            "QWidget:hover { border: 1px solid #3498db; background: #fafafa; }");
     bookCard->setObjectName("card_" + info.isbn);
+    bookCard->setCursor(Qt::PointingHandCursor);
+
+    // Dynamic Binding: Inject the custom BookInfo struct data directly into the Qt Object metadata layer
+    bookCard->setProperty("bookData", QVariant::fromValue(info));
+    // Install the event filter directly on the card wrapper component container
+    bookCard->installEventFilter(this);
 
     QVBoxLayout *cardLayout = new QVBoxLayout(bookCard);
     cardLayout->setContentsMargins(6, 6, 6, 6);
@@ -77,6 +89,9 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
     coverLabel->setObjectName("coverLabel");
     coverLabel->setFixedSize(108, 130);
     coverLabel->setAlignment(Qt::AlignCenter);
+
+    // Crucial: Child labels block mouse events by default; pass clicks through to the bookCard parent
+    coverLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 
     QPixmap coverPixmap;
     if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
@@ -91,12 +106,14 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
     titleLabel->setStyleSheet("font-size: 11px; font-weight: bold; border: none; background: transparent;");
     titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     titleLabel->setToolTip(info.title);
+    titleLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
     cardLayout->addWidget(titleLabel);
 
     QLabel *authorLabel = new QLabel(info.authors, bookCard);
     authorLabel->setObjectName("authorLabel");
     authorLabel->setStyleSheet("font-size: 10px; color: #7f8c8d; border: none; background: transparent;");
     authorLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    authorLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
     cardLayout->addWidget(authorLabel);
 
     // Save references to track card arrays for line wrapping calculations
@@ -109,20 +126,37 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
     rearrangeGrid();
 }
 
+// NEW: Event Filter logic engine that catches click releases targeting any active book card
+bool BookshelfWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::MouseButtonRelease) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            QWidget *clickedCard = qobject_cast<QWidget*>(watched);
+            if (clickedCard) {
+                QVariant prop = clickedCard->property("bookData");
+                if (prop.isValid() && prop.canConvert<BookInfo>()) {
+                    BookInfo selectedBook = prop.value<BookInfo>();
+                    emit bookSelected(selectedBook); // Broadcast the event to MainWindow's sidebar!
+                    return true; // Mark event handled cleanly
+                }
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
 // Dynamic grid allocation math calculation engine loop
 void BookshelfWidget::rearrangeGrid()
 {
-    // Clear out old positional links out of the grid layout map array
     QLayoutItem *child;
     while ((child = m_shelfGridLayout->takeAt(0)) != nullptr) {
-        // We only detach the links, do NOT delete the underlying card objects!
         delete child;
     }
 
-    int shelfWidth = width() - 40; // account for layout boundary padding margins
-    int cardWidth = 120 + 20;      // card size dimension + layout item spacing widths
+    int shelfWidth = width() - 40;
+    int cardWidth = 120 + 20;
 
-    // Determine how many items fit horizontally on one row safely before wrapping
     int maxColumns = qMax(1, shelfWidth / cardWidth);
 
     int row = 0;
@@ -133,7 +167,7 @@ void BookshelfWidget::rearrangeGrid()
         col++;
         if (col >= maxColumns) {
             col = 0;
-            row++; // Wrap line down to the next row grid layer!
+            row++;
         }
     }
 }
@@ -141,19 +175,18 @@ void BookshelfWidget::rearrangeGrid()
 void BookshelfWidget::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-    rearrangeGrid(); // Force row recalculation when window stretches or shrinks
+    rearrangeGrid();
 }
 
 QPixmap BookshelfWidget::generatePlaceholderCover(const QString &title)
 {
     QPixmap pixmap(108, 130);
-    pixmap.fill(QColor("#34495e")); // Dark elegant book spine color
+    pixmap.fill(QColor("#34495e"));
 
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::white);
 
-    // Draw a decorative framing inner border line box
     painter.drawRect(5, 5, 98, 120);
 
     QFont font = painter.font();
@@ -161,7 +194,6 @@ QPixmap BookshelfWidget::generatePlaceholderCover(const QString &title)
     font.setBold(true);
     painter.setFont(font);
 
-    // Securely wrap long titles so they don't leak out of the card bounds
     QRect textRect(10, 15, 88, 100);
     painter.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap,
                      title.left(25) + (title.length() > 25 ? "..." : ""));

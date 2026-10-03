@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QByteArray>
+#include <QMetaType>
 
 struct BookInfo {
     bool found = false;
@@ -12,5 +13,6 @@ struct BookInfo {
     QString engineSource;
     QByteArray coverData;
 };
+Q_DECLARE_METATYPE(BookInfo)
 
 #endif // BOOKINFO_H
