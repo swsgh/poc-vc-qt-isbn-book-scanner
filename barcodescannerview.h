@@ -2,24 +2,14 @@
 #define BARCODESCANNERVIEW_H
 
 #include <QWidget>
+#include <QImage>
 #include <memory>
 
 class QCamera;
 class QMediaCaptureSession;
-class QVideoWidget;
+class QVideoSink;
 class QVideoFrame;
 
-// --- Visual Viewfinder Overlay ---
-class ViewfinderOverlay : public QWidget
-{
-    Q_OBJECT
-public:
-    explicit ViewfinderOverlay(QWidget *parent = nullptr);
-protected:
-    void paintEvent(QPaintEvent *event) override;
-};
-
-// --- Standalone Scanner View Component ---
 class BarcodeScannerView : public QWidget
 {
     Q_OBJECT
@@ -31,22 +21,21 @@ public:
     void stopCapture();
 
 signals:
-    // Emitted whenever a valid ISBN barcode code is decoded
     void isbnScanned(const QString &isbn);
 
 protected:
-    void resizeEvent(QResizeEvent *event) override;
+    // We paint the camera frames and the laser overlay manually in the CPU pipeline
+    void paintEvent(QPaintEvent *event) override;
 
 private slots:
     void processVideoFrame(const QVideoFrame &frame);
 
 private:
-    QVideoWidget* m_videoWidget;
-    ViewfinderOverlay* m_overlay;
-
     std::unique_ptr<QCamera> m_camera;
     std::unique_ptr<QMediaCaptureSession> m_captureSession;
+    std::unique_ptr<QVideoSink> m_videoSink; // Handles frame routing
 
+    QImage m_currentFrame; // Locally caches the camera frame to draw
     bool m_isProcessingFrame;
 };
 
