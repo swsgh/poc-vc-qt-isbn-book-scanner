@@ -5,6 +5,7 @@
 
 class BarcodeScannerView;
 class BookMetadataProvider;
+class BookDatabaseManager;
 struct BookInfo;
 class QLabel;
 
@@ -19,10 +20,12 @@ public:
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
     void displayBookDetails(const BookInfo &info);
+    void handleDatabaseConfirmation(const QString &isbn);
 
 private:
     BarcodeScannerView* m_scannerView;
     BookMetadataProvider* m_metadataProvider;
+    BookDatabaseManager* m_dbManager;
     QLabel* m_isbnLabel;
 };
 

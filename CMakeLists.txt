@@ -49,6 +49,8 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     openlibraryprovider.cpp
     googlebooksprovider.h
     googlebooksprovider.cpp
+    bookdatabasemanager.h
+    bookdatabasemanager.cpp
 )
 
 # 4. Target Link Libraries & Platform Setup
