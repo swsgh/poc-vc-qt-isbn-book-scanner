@@ -11,6 +11,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -125,9 +126,26 @@ void MainWindow::displayBookDetails(const BookInfo &info)
 
 void MainWindow::removeBookRecord(const QString &isbn)
 {
+    // 1. Fetch the book data first to display its title in the warning message box
+    BookInfo bookToPurge = m_dbManager->getBookByIsbn(isbn);
+    QString bookTitle = bookToPurge.found ? bookToPurge.title : "this book";
+
+    // 2. Spawn a modal warning dialog box asking for verification
+    QMessageBox::StandardButton confirmation;
+    confirmation = QMessageBox::question(this,
+                                         "Confirm Deletion",
+                                         QString("Are you sure you want to permanently remove \"%1\" from your library archive?").arg(bookTitle),
+                                         QMessageBox::Yes | QMessageBox::No);
+
+    // If the user clicks "No" or closes the window, abort the delete operation instantly
+    if (confirmation == QMessageBox::No) {
+        qDebug() << "[Archive Controller] Deletion sequence safely cancelled by user.";
+        return;
+    }
+
     qDebug() << "[Archive Controller] Initiating absolute purge sequence for ISBN:" << isbn;
 
-    // CHANGED: Fixed method name from deleteBook to deleteBookRecord
+    // 3. Proceed with deletion since user clicked "Yes"
     bool success = m_dbManager->deleteBookRecord(isbn);
 
     if (success) {
