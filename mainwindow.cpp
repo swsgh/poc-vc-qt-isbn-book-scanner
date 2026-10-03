@@ -3,11 +3,11 @@
 #include "bookmetadataprovider.h"
 #include "bookdatabasemanager.h"
 #include "bookshelfwidget.h"
+#include "bookdetailssidebar.h" // NEW: Added inclusion for decoupled side widget panel class
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QPushButton> // NEW: Explicitly included for the close button
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
@@ -38,51 +38,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_bookshelfWidget = new BookshelfWidget(this);
     bottomRowLayout->addWidget(m_bookshelfWidget, 3);
 
-    // Right side of bottom layout: Dedicated Book Details Sidebar panel
-    // CHANGED: Instantiated into m_sidebarWidget so we can toggle visibility directly
-    m_sidebarWidget = new QWidget(this);
-    QVBoxLayout *sidebarLayout = new QVBoxLayout(m_sidebarWidget);
-    m_sidebarWidget->setFixedWidth(280); // Locks sidebar to a clean, readable width
-    m_sidebarWidget->setStyleSheet("background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;");
-
-    // Hide the panel on application launch until an item is explicitly interactively chosen
-    m_sidebarWidget->setVisible(false);
-
-    // --- NEW: Interactive Top Header Row containing the Close Button ---
-    QHBoxLayout *headerRowLayout = new QHBoxLayout();
-    QLabel *sidebarHeader = new QLabel("<b>📚 BOOK DETAILS</b>", this);
-    sidebarHeader->setStyleSheet("font-size: 13px; color: #7f8c8d; letter-spacing: 1px;");
-
-    QPushButton *closeSidebarButton = new QPushButton("✕", this);
-    closeSidebarButton->setFixedSize(24, 24);
-    closeSidebarButton->setStyleSheet(
-        "QPushButton { border: none; background: transparent; font-size: 14px; color: #95a5a6; font-weight: bold; }"
-        "QPushButton:hover { color: #e74c3c; background-color: #f2f3f4; border-radius: 12px; }"
-        );
-    closeSidebarButton->setCursor(Qt::PointingHandCursor);
-
-    headerRowLayout->addWidget(sidebarHeader, 1, Qt::AlignLeft);
-    headerRowLayout->addWidget(closeSidebarButton, 0, Qt::AlignRight);
-    sidebarLayout->addLayout(headerRowLayout);
-    // --------------------------------------------------------------------
-
-    m_detailTitleLabel = new QLabel("Select a book from your shelf...", this);
-    m_detailTitleLabel->setWordWrap(true);
-    m_detailTitleLabel->setStyleSheet("font-size: 14px; color: #2c3e50; font-weight: 500;");
-
-    m_detailAuthorLabel = new QLabel("", this);
-    m_detailAuthorLabel->setWordWrap(true);
-    m_detailAuthorLabel->setStyleSheet("font-size: 13px; color: #566573;");
-
-    m_detailIsbnLabel = new QLabel("", this);
-    m_detailIsbnLabel->setStyleSheet("font-size: 12px; color: #95a5a6; font-family: monospace;");
-
-    sidebarLayout->addWidget(m_detailTitleLabel);
-    sidebarLayout->addWidget(m_detailAuthorLabel);
-    sidebarLayout->addWidget(m_detailIsbnLabel);
-    sidebarLayout->addStretch(); // Pushes all the text up to the top of the sidebar
-
-    bottomRowLayout->addWidget(m_sidebarWidget, 1); // Sidebar takes up remaining 1/4 width
+    // Right side of bottom layout: Dedicated Standalone Book Details Sidebar component file
+    // MOVED: All label allocations, buttons, and styles are now contained inside BookDetailsSidebar
+    m_detailsSidebar = new BookDetailsSidebar(this);
+    m_detailsSidebar->setVisible(false); // Hide panel on application launch until requested
+    bottomRowLayout->addWidget(m_detailsSidebar, 1); // Sidebar takes up remaining 1/4 width
 
     // Connect the combined horizontal bottom shelf layout to the main layout frame
     mainVerticalLayout->addWidget(bottomRowContainer, 1); // Receives all primary structural scaling layout footprint!
@@ -132,11 +92,8 @@ MainWindow::MainWindow(QWidget *parent)
         updateStatusLabel(err, true);
     });
 
-    // --- CONNECT BOOKSHELF SELECTION TO SIDEBAR UPDATE ---
-    connect(m_bookshelfWidget, &BookshelfWidget::bookSelected, this, &MainWindow::updateDetailsSidebar);
-
-    // --- NEW CONNECTION: Connect Close Button trigger to close slot ---
-    connect(closeSidebarButton, &QPushButton::clicked, this, &MainWindow::closeDetailsSidebar);
+    // --- CONNECT BOOKSHELF SELECTION DIRECTLY TO SIDEBAR WIDGET SLOT ---
+    connect(m_bookshelfWidget, &BookshelfWidget::bookSelected, m_detailsSidebar, &BookDetailsSidebar::updateDetails);
 
     m_scannerView->startCapture();
 }
@@ -157,35 +114,10 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
 // Triggered immediately when an active scanning cycle captures metadata
 void MainWindow::displayBookDetails(const BookInfo &info)
 {
+    // Minimal camera message per previous instructions
     m_isbnLabel->setText(QString("📖 Successfully scanned: %1").arg(info.title));
     m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #1e8449; padding: 15px; background: #e8f8f5;");
 
-    updateDetailsSidebar(info);
-}
-
-// Triggered when clicking a book item inside the bookshelf layout row or when a live scan happens
-void MainWindow::updateDetailsSidebar(const BookInfo &info)
-{
-    // Make sure the panel reveals itself dynamically if it was previously hidden away
-    m_sidebarWidget->setVisible(true);
-
-    m_detailTitleLabel->setText(QString("<b>Title:</b><br>%1").arg(info.title));
-    m_detailAuthorLabel->setText(QString("<b>Author(s):</b><br>%1").arg(info.authors.isEmpty() ? "Unknown" : info.authors));
-    m_detailIsbnLabel->setText(QString("<b>ISBN:</b> %1<br><small>Source: %2</small>").arg(info.isbn).arg(info.engineSource));
-}
-
-// NEW SLOT: Completely hides the panel layout container instantly
-void MainWindow::closeDetailsSidebar()
-{
-    m_sidebarWidget->setVisible(false);
-
-    // Reset standard fallback state metrics inside layout strings
-    m_detailTitleLabel->setText("Select a book from your shelf...");
-    m_detailAuthorLabel->clear();
-    m_detailIsbnLabel->clear();
-}
-
-void MainWindow::handleDatabaseConfirmation(const QString &isbn)
-{
-    m_isbnLabel->setText("Saved securely into local archive database.");
+    // Forward data payload out to our decoupled standalone widget file slot layout
+    m_detailsSidebar->updateDetails(info);
 }
