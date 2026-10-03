@@ -52,10 +52,11 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
 
 void MainWindow::displayBookDetails(const BookInfo &info)
 {
-    QString displayTemplate = QString("📖 Title: %1\n✍️ Author(s): %2\n🔢 Code: %3")
+    QString displayTemplate = QString("📖 Title: %1\n✍️ Author(s): %2\n🔢 Code: %3\n⚙️ Source: %4")
                                   .arg(info.title)
                                   .arg(info.authors)
-                                  .arg(info.isbn);
+                                  .arg(info.isbn)
+                                  .arg(info.engineSource); // Shows "Open Library" or "Google Books"
 
     m_isbnLabel->setText(displayTemplate);
     m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #1e8449; padding: 15px; background: #e8f8f5;");
