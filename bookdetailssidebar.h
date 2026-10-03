@@ -24,6 +24,7 @@ signals:
     void deleteBookRequested(const QString &isbn);
 
 private:
+    QLabel* m_coverLabel;
     QLabel* m_detailTitleLabel;
     QLabel* m_detailAuthorLabel;
     QLabel* m_detailIsbnLabel;

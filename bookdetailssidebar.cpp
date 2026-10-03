@@ -3,6 +3,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QPixmap>
+#include <QPainter> // Required to draw the local placeholder backup
 
 BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
 {
@@ -10,6 +12,7 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     setStyleSheet("background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;");
 
     QVBoxLayout *sidebarLayout = new QVBoxLayout(this);
+    sidebarLayout->setSpacing(12); // Give fields breathe room
 
     // --- Interactive Top Header Row containing the Close Button ---
     QHBoxLayout *headerRowLayout = new QHBoxLayout();
@@ -28,6 +31,13 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     headerRowLayout->addWidget(closeSidebarButton, 0, Qt::AlignRight);
     sidebarLayout->addLayout(headerRowLayout);
 
+    // --- NEW: Visual Cover Frame Element ---
+    m_coverLabel = new QLabel(this);
+    m_coverLabel->setFixedSize(140, 180); // Scaled nicely for a 280px sidebar
+    m_coverLabel->setAlignment(Qt::AlignCenter);
+    m_coverLabel->setStyleSheet("border: 1px solid #dee2e6; background: #eaeded; border-radius: 4px;");
+    sidebarLayout->addWidget(m_coverLabel, 0, Qt::AlignHCenter); // Keep centered horizontally
+
     // --- Detail fields tracking text items ---
     m_detailTitleLabel = new QLabel("Select a book from your shelf...", this);
     m_detailTitleLabel->setWordWrap(true);
@@ -44,9 +54,9 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     sidebarLayout->addWidget(m_detailAuthorLabel);
     sidebarLayout->addWidget(m_detailIsbnLabel);
 
-    sidebarLayout->addStretch(); // Pushes elements up, forcing the delete button to stay at the absolute bottom
+    sidebarLayout->addStretch();
 
-    // --- NEW: Archival Delete Button Component ---
+    // --- Archival Delete Button Component ---
     m_deleteButton = new QPushButton("🗑️ Remove From Shelf", this);
     m_deleteButton->setMinimumHeight(35);
     m_deleteButton->setCursor(Qt::PointingHandCursor);
@@ -57,10 +67,8 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
         );
     sidebarLayout->addWidget(m_deleteButton);
 
-    // Connect Close Button
     connect(closeSidebarButton, &QPushButton::clicked, this, &BookDetailsSidebar::closeSidebar);
 
-    // NEW CONNECTION: Connect Delete click to lambda that throws the message upstream
     connect(m_deleteButton, &QPushButton::clicked, this, [this]() {
         if (!m_currentIsbn.isEmpty()) {
             emit deleteBookRequested(m_currentIsbn);
@@ -71,7 +79,33 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
 void BookDetailsSidebar::updateDetails(const BookInfo &info)
 {
     setVisible(true);
-    m_currentIsbn = info.isbn; // Cache the current active ISBN string reference
+    m_currentIsbn = info.isbn;
+
+    // --- Parse Cover Image Bytes ---
+    QPixmap coverPixmap;
+    if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
+        m_coverLabel->setPixmap(coverPixmap.scaled(m_coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    } else {
+        // Fallback layout generation tool directly mimicking BookshelfWidget placeholder logic
+        QPixmap placeholder(140, 180);
+        placeholder.fill(QColor("#34495e"));
+        QPainter painter(&placeholder);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(Qt::white);
+        painter.drawRect(5, 5, 130, 170);
+
+        QFont font = painter.font();
+        font.setPointSize(9);
+        font.setBold(true);
+        painter.setFont(font);
+
+        QRect textRect(10, 20, 120, 140);
+        painter.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap,
+                         info.title.left(30) + (info.title.length() > 30 ? "..." : ""));
+        painter.end();
+
+        m_coverLabel->setPixmap(placeholder);
+    }
 
     m_detailTitleLabel->setText(QString("<b>Title:</b><br>%1").arg(info.title));
     m_detailAuthorLabel->setText(QString("<b>Author(s):</b><br>%1").arg(info.authors.isEmpty() ? "Unknown" : info.authors));
@@ -81,7 +115,8 @@ void BookDetailsSidebar::updateDetails(const BookInfo &info)
 void BookDetailsSidebar::closeSidebar()
 {
     setVisible(false);
-    m_currentIsbn.clear(); // Clear out cached records footprint
+    m_currentIsbn.clear();
+    m_coverLabel->clear(); // Drop old pixel memory buffers cleanly
     m_detailTitleLabel->setText("Select a book from your shelf...");
     m_detailAuthorLabel->clear();
     m_detailIsbnLabel->clear();
