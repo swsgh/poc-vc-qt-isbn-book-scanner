@@ -6,6 +6,9 @@
 
 #include <QVBoxLayout>
 #include <QLabel>
+#include <QStandardPaths>
+#include <QDir>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -23,9 +26,19 @@ MainWindow::MainWindow(QWidget *parent)
     m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #2c3e50; padding: 10px; background: #ecf0f1;");
     layout->addWidget(m_isbnLabel);
 
-    // Initialize individual application component controllers
     m_dbManager = new BookDatabaseManager(this);
-    m_dbManager->initDatabase("scanned_books.db");
+    // On Windows: Maps to C:/Users/<User>/AppData/Local/<AppName>
+    // On Android: Maps to /data/user/0/<PackageName>/files
+    QString appDataFolder = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    // Windows and Android will fail to write the .db file if the folder hasn't been created yet
+    QDir dir(appDataFolder);
+    if (!dir.exists()) {
+        dir.mkpath("."); // Dynamically constructs the full nesting chain safely
+    }
+    QString crossPlatformDbPath = QDir::cleanPath(appDataFolder + "/scanned_books.db");
+    qDebug() << "[Database Info] Absolute SQL Path written to hardware:";
+    qDebug() << "   ->" << crossPlatformDbPath;
+    m_dbManager->initDatabase(crossPlatformDbPath);
 
     m_metadataProvider = new BookMetadataProvider(m_dbManager, this);
 

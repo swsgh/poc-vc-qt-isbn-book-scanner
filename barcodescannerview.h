@@ -1,7 +1,7 @@
 #ifndef BARCODESCANNERVIEW_H
 #define BARCODESCANNERVIEW_H
 
-#include <QWidget>
+#include <QOpenGLWidget>
 #include <QImage>
 #include <memory>
 
@@ -10,7 +10,8 @@ class QMediaCaptureSession;
 class QVideoSink;
 class QVideoFrame;
 
-class BarcodeScannerView : public QWidget
+// CHANGED: Inherit from QOpenGLWidget to enforce GPU-accelerated rendering on Android
+class BarcodeScannerView : public QOpenGLWidget
 {
     Q_OBJECT
 public:
@@ -24,7 +25,6 @@ signals:
     void isbnScanned(const QString &isbn);
 
 protected:
-    // We paint the camera frames and the laser overlay manually in the CPU pipeline
     void paintEvent(QPaintEvent *event) override;
 
 private slots:
@@ -33,9 +33,9 @@ private slots:
 private:
     std::unique_ptr<QCamera> m_camera;
     std::unique_ptr<QMediaCaptureSession> m_captureSession;
-    std::unique_ptr<QVideoSink> m_videoSink; // Handles frame routing
+    std::unique_ptr<QVideoSink> m_videoSink;
 
-    QImage m_currentFrame; // Locally caches the camera frame to draw
+    QImage m_currentFrame;
     bool m_isProcessingFrame;
 };
 

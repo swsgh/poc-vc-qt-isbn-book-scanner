@@ -19,6 +19,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Network
     Multimedia
     MultimediaWidgets
+    OpenGLWidgets
 )
 
 # 2. Configure ZXing-C++ Subdirectory Flags (Scoped Dependencies)
@@ -32,6 +33,13 @@ set(BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(3rdparty/zxing-cpp)
+
+# --- FIX: INJECT ANDROID OPENSSL TLS BACKEND BINARIES ---
+if(ANDROID)
+    # Automatically locate and fetch the pre-packaged Android OpenSSL scripts
+    # from your local configured Android SDK directories
+    include(${ANDROID_SDK_ROOT}/android_openssl/CMakeLists.txt)
+endif()
 
 # 3. Application Source Compilation Definition
 # The MANUAL_FINALIZATION flag allows for flexible deployment asset injection if needed later
@@ -64,6 +72,7 @@ target_link_libraries(ISBNBookScanner PRIVATE
     Qt6::Network
     Qt6::Multimedia
     Qt6::MultimediaWidgets
+    Qt6::OpenGLWidgets
     ZXing::ZXing
 )
 
