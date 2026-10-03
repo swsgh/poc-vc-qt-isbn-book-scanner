@@ -47,25 +47,55 @@ void BarcodeScannerView::processVideoFrame(const QVideoFrame &frame)
 
     QVideoFrame cloneFrame(frame);
     if (cloneFrame.map(QVideoFrame::ReadOnly)) {
-        // Convert the underlying hardware frame format cleanly into a CPU QImage
+        // 1. Convert the raw frame to a standard CPU QImage
         QImage image = cloneFrame.toImage().convertToFormat(QImage::Format_RGB888);
         cloneFrame.unmap();
 
-        if (!image.isNull()) {
-            // Update the frame logic cache on the GUI Thread safely
-            QMetaObject::invokeMethod(this, [this, image]() {
-                m_currentFrame = image;
-                update(); // Tells Qt to trigger paintEvent immediately
-            }, Qt::QueuedConnection);
+        if (image.isNull()) return;
 
-            // Double check execution path block flag before running heavy ZXing loops
-            if (!m_isProcessingFrame) {
-                m_isProcessingFrame = true;
+        // 2. Safely push the frame to the main thread for rendering the viewfinder background
+        QMetaObject::invokeMethod(this, [this, image]() {
+            m_currentFrame = image;
+            update(); // Re-triggers paintEvent()
+        }, Qt::QueuedConnection);
 
-                ZXing::ImageView imageView(image.bits(), image.width(), image.height(), ZXing::ImageFormat::RGB);
+        // 3. Drop processing frames if the ZXing decoder thread channel is busy
+        if (!m_isProcessingFrame) {
+            m_isProcessingFrame = true;
+
+            // --- OPTIMIZATION ZONE: CALCULATE SCANNING CROPPING METRICS ---
+
+            // Dimensions of the display widget window space
+            double widgetWidth = static_cast<double>(width());
+            double widgetHeight = static_cast<double>(height());
+
+            // Dimensions of the actual underlying raw camera sensor frame resolution
+            double frameWidth = static_cast<double>(image.width());
+            double frameHeight = static_cast<double>(image.height());
+
+            // Determine our custom target sizing scale ratio (0.7 width, 0.25 height)
+            double targetBoxWidthPercent = 0.7;
+            double targetBoxHeightPercent = 0.25;
+
+            // Directly calculate where that target box falls in actual frame pixels
+            int cropWidth = static_cast<int>(frameWidth * targetBoxWidthPercent);
+            int cropHeight = static_cast<int>(frameHeight * targetBoxHeightPercent);
+            int cropX = static_cast<int>((frameWidth - cropWidth) / 2.0);
+            int cropY = static_cast<int>((frameHeight - cropHeight) / 2.0);
+
+            QRect targetFrameRect(cropX, cropY, cropWidth, cropHeight);
+
+            // Extract ONLY the targeted sub-region pixels from the camera data memory map
+            QImage croppedZone = image.copy(targetFrameRect);
+            // ----------------===========================================---
+
+            if (!croppedZone.isNull()) {
+                // Initialize ZXing view using only the lightweight cropped image zone buffer
+                ZXing::ImageView imageView(croppedZone.bits(), croppedZone.width(), croppedZone.height(), ZXing::ImageFormat::RGB);
+
                 ZXing::ReaderOptions options;
                 options.setFormats(ZXing::BarcodeFormat::EAN13);
-                options.setTryHarder(true);
+                options.setTryHarder(false); // Can be turned OFF now because cropping provides high focus!
 
                 ZXing::Result result = ZXing::ReadBarcode(imageView, options);
 
@@ -75,8 +105,8 @@ void BarcodeScannerView::processVideoFrame(const QVideoFrame &frame)
                         emit isbnScanned(scannedText);
                     }, Qt::QueuedConnection);
                 }
-                m_isProcessingFrame = false;
             }
+            m_isProcessingFrame = false;
         }
     }
 }

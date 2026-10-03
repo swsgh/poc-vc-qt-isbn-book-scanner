@@ -4,6 +4,8 @@
 #include <QMainWindow>
 
 class BarcodeScannerView;
+class BookMetadataProvider;
+struct BookInfo;
 class QLabel;
 
 class MainWindow : public QMainWindow
@@ -15,11 +17,12 @@ public:
     ~MainWindow() override = default;
 
 private slots:
-    // Slot acting upon target signal events emitted by our standalone component
-    void handleIsbnScanned(const QString &isbn);
+    void updateStatusLabel(const QString &text, bool isError);
+    void displayBookDetails(const BookInfo &info);
 
 private:
     BarcodeScannerView* m_scannerView;
+    BookMetadataProvider* m_metadataProvider;
     QLabel* m_isbnLabel;
 };
 
