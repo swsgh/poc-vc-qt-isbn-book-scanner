@@ -1,7 +1,8 @@
 #include "mainwindow.h"
 #include "barcodescannerview.h"
 #include "bookmetadataprovider.h"
-#include "bookdatabasemanager.h" // <-- Added
+#include "bookdatabasemanager.h"
+#include "bookshelfwidget.h"
 
 #include <QVBoxLayout>
 #include <QLabel>
@@ -12,47 +13,53 @@ MainWindow::MainWindow(QWidget *parent)
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(centralWidget);
 
+    // 1. Scanner View Component (Top Allocation)
     m_scannerView = new BarcodeScannerView(this);
-    layout->addWidget(m_scannerView, 1);
+    layout->addWidget(m_scannerView, 3); // Stretch factor 3 keeps camera viewfinder tall
 
+    // 2. Active Metadata Tracking Footer Label View (Center Allocation)
     m_isbnLabel = new QLabel("Align ISBN barcode with the red laser line...", this);
     m_isbnLabel->setAlignment(Qt::AlignCenter);
     m_isbnLabel->setWordWrap(true);
-    m_isbnLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50; padding: 15px; background: #ecf0f1;");
+    m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #2c3e50; padding: 10px; background: #ecf0f1;");
     layout->addWidget(m_isbnLabel, 0);
 
-    setCentralWidget(centralWidget);
-    setWindowTitle("ISBN Local Cataloger");
+    // 3. Bookshelf Widget Component View (Bottom Allocation)
+    m_bookshelfWidget = new BookshelfWidget(this);
+    layout->addWidget(m_bookshelfWidget, 2); // Stretch factor 2 allocates proper room for covers layout row
 
-    // Initialize the standalone components
+    setCentralWidget(centralWidget);
+    setWindowTitle("Virtual Bookshelf Tracker");
+    resize(850, 750); // Provide extra vertical window bounds canvas space for the new bookshelf rows
+
+    // Initialize individual application component controllers
     m_metadataProvider = new BookMetadataProvider(this);
     m_dbManager = new BookDatabaseManager(this);
 
-    // Start up the database file
-    m_dbManager->initDatabase("scanned_books.db");
+    if (m_dbManager->initDatabase("scanned_books.db")) {
+        // --- POPULATE BOOKSHELF HISTORY ROW ON BOOT ---
+        QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
+        for (const BookInfo &book : historicalBooks) {
+            m_bookshelfWidget->addBookToShelf(book, false); // Append historically sorted data rows
+        }
+    }
 
-    // =================================================================
-    // ORCHESTRATION LINKS: Inter-connecting the architectural modules
-    // =================================================================
-    // 1. Scanner View sends raw barcode text strings to the API layer
-    connect(m_scannerView, &BarcodeScannerView::isbnScanned,
-            m_metadataProvider, &BookMetadataProvider::lookupIsbn);
+    // Connect functional interaction pipelines across classes
+    connect(m_scannerView, &BarcodeScannerView::isbnScanned, m_metadataProvider, &BookMetadataProvider::lookupIsbn);
+    connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged, this, &MainWindow::updateStatusLabel);
+    connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &MainWindow::displayBookDetails);
+    connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
 
-    // 2. Metadata Engine reports network statuses back to the main UI label
-    connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged,
-            this, &MainWindow::updateStatusLabel);
+    // CRITICAL: When database finishes saving a new live scan entry record, slide it straight into the visual shelf view row!
+    connect(m_dbManager, &BookDatabaseManager::bookSavedSuccessfully, this, [this](const QString &isbn) {
+        // Re-read or capture the latest processed record payload to render it in front of the active view card row sequence
+        QList<BookInfo> freshlySaved = m_dbManager->getAllSavedBooks();
+        if (!freshlySaved.isEmpty()) {
+            m_bookshelfWidget->addBookToShelf(freshlySaved.first(), true); // Slide to the front of the list elegantly
+        }
+        m_isbnLabel->setText(m_isbnLabel->text() + "\n💾 Saved securely into local archive database.");
+    });
 
-    // 3. Metadata Engine routes successful payloads straight to the UI display
-    connect(m_metadataProvider, &BookMetadataProvider::bookDataReady,
-            this, &MainWindow::displayBookDetails);
-
-    // 4. CRITICAL LINK: Automatically direct matched payloads down to SQLite database storage
-    connect(m_metadataProvider, &BookMetadataProvider::bookDataReady,
-            m_dbManager, &BookDatabaseManager::saveBookRecord);
-
-    // 5. Database events reporting back up to UI confirmation pipes
-    connect(m_dbManager, &BookDatabaseManager::bookSavedSuccessfully,
-            this, &MainWindow::handleDatabaseConfirmation);
     connect(m_dbManager, &BookDatabaseManager::databaseError, this, [this](const QString &err){
         updateStatusLabel(err, true);
     });

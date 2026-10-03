@@ -7,6 +7,7 @@ class BarcodeScannerView;
 class BookMetadataProvider;
 class BookDatabaseManager;
 struct BookInfo;
+class BookshelfWidget;
 class QLabel;
 
 class MainWindow : public QMainWindow
@@ -26,6 +27,7 @@ private:
     BarcodeScannerView* m_scannerView;
     BookMetadataProvider* m_metadataProvider;
     BookDatabaseManager* m_dbManager;
+    BookshelfWidget* m_bookshelfWidget;
     QLabel* m_isbnLabel;
 };
 

@@ -14,6 +14,8 @@ public:
 
     // Opens the database file and creates the table layout if it doesn't exist
     bool initDatabase(const QString &dbPath = "scanned_books.db");
+    // Retrieves all saved items sorted by the newest scan entry sequence timestamp
+    QList<BookInfo> getAllSavedBooks();
 
 public slots:
     // Slot designed to directly consume the BookInfo packet emitted by the provider

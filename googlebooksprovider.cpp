@@ -19,7 +19,7 @@ void GoogleBooksProvider::requestMetadata(const QString &isbn)
 {
     m_activeIsbn = isbn;
     // Public Google Books standard ISBN search syntax endpoint
-    QString urlString = QString("https://googleapis.com/books/v1/volumes?q=isbn:%1").arg(isbn);
+    QString urlString = QString("https://www.googleapis.com/books/v1/volumes?q=isbn:%1").arg(isbn);
     QNetworkRequest request((QUrl(urlString)));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setHeader(QNetworkRequest::UserAgentHeader, "Qt6ISBNBookScanner/1.0 (GoogleBooks Module)");
@@ -59,6 +59,18 @@ void GoogleBooksProvider::handleReply(QNetworkReply *reply)
     info.title = volumeInfo.value("title").toString("Unknown Title");
     info.engineSource = "Google Books";
 
+    // Extract temporary string assets locally
+    QString urlSmall = "";
+    QString urlMedium = "";
+    if (volumeInfo.contains("imageLinks") && volumeInfo.value("imageLinks").isObject()) {
+        QJsonObject imageLinks = volumeInfo.value("imageLinks").toObject();
+        urlSmall = imageLinks.value("smallThumbnail").toString("");
+        urlMedium = imageLinks.value("thumbnail").toString("");
+
+        if (urlSmall.startsWith("http://")) urlSmall.replace(0, 7, "https://");
+        if (urlMedium.startsWith("http://")) urlMedium.replace(0, 7, "https://");
+    }
+
     // Google Books parses author tokens as a flat string array list directly inside volumeInfo
     if (volumeInfo.contains("authors") && volumeInfo.value("authors").isArray()) {
         QJsonArray authorsArr = volumeInfo.value("authors").toArray();
@@ -71,5 +83,5 @@ void GoogleBooksProvider::handleReply(QNetworkReply *reply)
         info.authors = "Unknown Author";
     }
 
-    emit lookupFinished(info);
+    emit lookupFinished(info, urlSmall, urlMedium);
 }

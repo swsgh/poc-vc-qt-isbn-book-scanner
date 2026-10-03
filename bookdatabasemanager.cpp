@@ -2,7 +2,6 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
-#include <QDateTime>
 #include <QDebug>
 
 BookDatabaseManager::BookDatabaseManager(QObject *parent) : QObject(parent)
@@ -28,7 +27,7 @@ bool BookDatabaseManager::initDatabase(const QString &dbPath)
         "  title TEXT NOT NULL,"
         "  authors TEXT,"
         "  engine_source TEXT,"
-        "  scanned_at TEXT"
+        "  cover_blob BLOB"
         ")";
 
     if (!query.exec(createTableSql)) {
@@ -46,21 +45,37 @@ void BookDatabaseManager::saveBookRecord(const BookInfo &info)
     QSqlQuery query;
     // Use an INSERT OR REPLACE clause so scanning a book a second time updates its entry
     // instead of throwing a duplicate primary key error constraint
-    query.prepare("INSERT OR REPLACE INTO books (isbn, title, authors, engine_source, scanned_at) "
+    query.prepare("INSERT OR REPLACE INTO books (isbn, title, authors, engine_source, cover_blob) "
                   "VALUES (?, ?, ?, ?, ?)");
 
     query.addBindValue(info.isbn);
     query.addBindValue(info.title);
     query.addBindValue(info.authors);
     query.addBindValue(info.engineSource);
-
-    // Stamp the record with the current date and time
-    QString currentTimestamp = QDateTime::currentDateTime().toString(Qt::ISODate);
-    query.addBindValue(currentTimestamp);
+    // SQLite driver automatically converts QByteArray objects straight into local BLOB field entries
+    query.addBindValue(info.coverData);
 
     if (!query.exec()) {
         emit databaseError("Failed to save book record: " + query.lastError().text());
     } else {
         emit bookSavedSuccessfully(info.isbn);
     }
+}
+
+QList<BookInfo> BookDatabaseManager::getAllSavedBooks()
+{
+    QList<BookInfo> bookList;
+    QSqlQuery query("SELECT isbn, title, authors, engine_source, cover_blob FROM books ORDER BY isbn DESC");
+
+    while (query.next()) {
+        BookInfo info;
+        info.found = true;
+        info.isbn = query.value(0).toString();
+        info.title = query.value(1).toString();
+        info.authors = query.value(2).toString();
+        info.engineSource = query.value(3).toString();
+        info.coverData = query.value(4).toByteArray();
+        bookList.append(info);
+    }
+    return bookList;
 }

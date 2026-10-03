@@ -51,6 +51,8 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     googlebooksprovider.cpp
     bookdatabasemanager.h
     bookdatabasemanager.cpp
+    bookshelfwidget.h
+    bookshelfwidget.cpp
 )
 
 # 4. Target Link Libraries & Platform Setup
