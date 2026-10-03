@@ -39,6 +39,8 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     main.cpp
     mainwindow.cpp
     mainwindow.h
+    barcodescannerview.h
+    barcodescannerview.cpp
 )
 
 # 4. Target Link Libraries & Platform Setup
