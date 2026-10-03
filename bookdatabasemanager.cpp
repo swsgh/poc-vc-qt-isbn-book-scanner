@@ -109,3 +109,21 @@ bool BookDatabaseManager::hasBookInLocalDatabase(const QString &isbn)
     }
     return false;
 }
+
+// NEW: Safely handles removing the target entry matching the chosen primary key tracking string
+bool BookDatabaseManager::deleteBookRecord(const QString &isbn)
+{
+    if (isbn.isEmpty()) return false;
+
+    QSqlQuery query;
+    query.prepare("DELETE FROM books WHERE isbn = ?");
+    query.addBindValue(isbn);
+
+    if (!query.exec()) {
+        emit databaseError("Failed to purge book from database: " + query.lastError().text());
+        return false;
+    }
+
+    // Verify a row was actually affected by checking the database engine footprint response
+    return query.numRowsAffected() > 0;
+}

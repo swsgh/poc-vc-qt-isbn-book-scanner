@@ -22,6 +22,7 @@ public:
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
     void displayBookDetails(const BookInfo &info);
+    void removeBookRecord(const QString &isbn);
 
 private:
     BarcodeScannerView* m_scannerView;
@@ -30,7 +31,6 @@ private:
     BookshelfWidget* m_bookshelfWidget;
     QLabel* m_isbnLabel;
 
-    // REPLACED LABELS WITH NEW STANDALONE WIDGET COMPONENT
     BookDetailsSidebar* m_detailsSidebar;
 };
 

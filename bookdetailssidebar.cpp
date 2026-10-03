@@ -6,7 +6,7 @@
 
 BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
 {
-    setFixedWidth(280); // Locks sidebar to a clean, readable width
+    setFixedWidth(280);
     setStyleSheet("background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;");
 
     QVBoxLayout *sidebarLayout = new QVBoxLayout(this);
@@ -43,15 +43,36 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     sidebarLayout->addWidget(m_detailTitleLabel);
     sidebarLayout->addWidget(m_detailAuthorLabel);
     sidebarLayout->addWidget(m_detailIsbnLabel);
-    sidebarLayout->addStretch(); // Pushes all layout text elements to the top
 
-    // Connect the Close Button directly to our localized hiding slot engine
+    sidebarLayout->addStretch(); // Pushes elements up, forcing the delete button to stay at the absolute bottom
+
+    // --- NEW: Archival Delete Button Component ---
+    m_deleteButton = new QPushButton("🗑️ Remove From Shelf", this);
+    m_deleteButton->setMinimumHeight(35);
+    m_deleteButton->setCursor(Qt::PointingHandCursor);
+    m_deleteButton->setStyleSheet(
+        "QPushButton { background-color: #ffffff; border: 1px solid #e74c3c; color: #e74c3c; font-weight: bold; border-radius: 4px; font-size: 12px; }"
+        "QPushButton:hover { background-color: #e74c3c; color: #ffffff; }"
+        "QPushButton:pressed { background-color: #c0392b; border-color: #c0392b; }"
+        );
+    sidebarLayout->addWidget(m_deleteButton);
+
+    // Connect Close Button
     connect(closeSidebarButton, &QPushButton::clicked, this, &BookDetailsSidebar::closeSidebar);
+
+    // NEW CONNECTION: Connect Delete click to lambda that throws the message upstream
+    connect(m_deleteButton, &QPushButton::clicked, this, [this]() {
+        if (!m_currentIsbn.isEmpty()) {
+            emit deleteBookRequested(m_currentIsbn);
+        }
+    });
 }
 
 void BookDetailsSidebar::updateDetails(const BookInfo &info)
 {
-    setVisible(true); // Reveal panel container layout bounds instantly
+    setVisible(true);
+    m_currentIsbn = info.isbn; // Cache the current active ISBN string reference
+
     m_detailTitleLabel->setText(QString("<b>Title:</b><br>%1").arg(info.title));
     m_detailAuthorLabel->setText(QString("<b>Author(s):</b><br>%1").arg(info.authors.isEmpty() ? "Unknown" : info.authors));
     m_detailIsbnLabel->setText(QString("<b>ISBN:</b> %1<br><small>Source: %2</small>").arg(info.isbn).arg(info.engineSource));
@@ -59,7 +80,8 @@ void BookDetailsSidebar::updateDetails(const BookInfo &info)
 
 void BookDetailsSidebar::closeSidebar()
 {
-    setVisible(false); // Cleanly collapse the horizontal layout allocation footprint
+    setVisible(false);
+    m_currentIsbn.clear(); // Clear out cached records footprint
     m_detailTitleLabel->setText("Select a book from your shelf...");
     m_detailAuthorLabel->clear();
     m_detailIsbnLabel->clear();

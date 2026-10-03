@@ -201,6 +201,23 @@ QPixmap BookshelfWidget::generatePlaceholderCover(const QString &title)
     return pixmap;
 }
 
+void BookshelfWidget::removeBookFromShelf(const QString &isbn)
+{
+    // Find the specific book card widget container by its object name format
+    QWidget *cardToErase = m_scrollContainer->findChild<QWidget*>("card_" + isbn);
+
+    if (cardToErase) {
+        // Remove it from our structural list tracking array
+        m_bookCards.removeOne(cardToErase);
+
+        // Safely schedule the widget object and its child labels for deletion
+        cardToErase->deleteLater();
+
+        // Force layout engine recalculation and adjust wrapping columns
+        rearrangeGrid();
+    }
+}
+
 void BookshelfWidget::clearShelf()
 {
     for (QWidget* card : m_bookCards) {

@@ -94,6 +94,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // --- CONNECT BOOKSHELF SELECTION DIRECTLY TO SIDEBAR WIDGET SLOT ---
     connect(m_bookshelfWidget, &BookshelfWidget::bookSelected, m_detailsSidebar, &BookDetailsSidebar::updateDetails);
+    connect(m_detailsSidebar, &BookDetailsSidebar::deleteBookRequested, this, &MainWindow::removeBookRecord);
 
     m_scannerView->startCapture();
 }
@@ -120,4 +121,25 @@ void MainWindow::displayBookDetails(const BookInfo &info)
 
     // Forward data payload out to our decoupled standalone widget file slot layout
     m_detailsSidebar->updateDetails(info);
+}
+
+void MainWindow::removeBookRecord(const QString &isbn)
+{
+    qDebug() << "[Archive Controller] Initiating absolute purge sequence for ISBN:" << isbn;
+
+    // CHANGED: Fixed method name from deleteBook to deleteBookRecord
+    bool success = m_dbManager->deleteBookRecord(isbn);
+
+    if (success) {
+        // Erase visual card node component from bookshelf layout view instantly
+        m_bookshelfWidget->removeBookFromShelf(isbn);
+
+        // Clear and hide the sidebar panel cleanly
+        m_detailsSidebar->closeSidebar();
+
+        m_isbnLabel->setText("Book record removed successfully from shelf archive.");
+        m_isbnLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #7f8c8d; padding: 8px; background: #ecf0f1;");
+    } else {
+        updateStatusLabel("Failed to remove book from local database storage hierarchy.", true);
+    }
 }

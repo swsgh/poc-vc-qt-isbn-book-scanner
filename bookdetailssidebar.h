@@ -5,6 +5,7 @@
 #include "bookinfo.h"
 
 class QLabel;
+class QPushButton; // Forward declare the button class
 
 class BookDetailsSidebar : public QWidget
 {
@@ -15,16 +16,19 @@ public:
     ~BookDetailsSidebar() override = default;
 
 public slots:
-    // Updates the fields and forces the panel into visibility
     void updateDetails(const BookInfo &info);
-
-    // Completely collapses the panel and clears data fields out of memory footprint
     void closeSidebar();
+
+signals:
+    // NEW: Emitted when the user wants to delete the active book from the archive
+    void deleteBookRequested(const QString &isbn);
 
 private:
     QLabel* m_detailTitleLabel;
     QLabel* m_detailAuthorLabel;
     QLabel* m_detailIsbnLabel;
+    QPushButton* m_deleteButton; // NEW: Pointer to toggle button context safely
+    QString m_currentIsbn;       // NEW: Tracks active ISBN being shown
 };
 
 #endif // BOOKDETAILSSIDEBAR_H

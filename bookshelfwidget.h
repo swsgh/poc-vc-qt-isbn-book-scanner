@@ -19,6 +19,7 @@ public:
     ~BookshelfWidget() override = default;
 
     void addBookToShelf(const BookInfo &info, bool prepend = true);
+    void removeBookFromShelf(const QString &isbn);
     void clearShelf();
 
 signals:

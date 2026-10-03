@@ -19,6 +19,7 @@ public:
     BookInfo getBookByIsbn(const QString &isbn);
     // Returns true if the ISBN primary key exists in the database table rows
     bool hasBookInLocalDatabase(const QString &isbn);
+    bool deleteBookRecord(const QString &isbn);
 
 public slots:
     // Slot designed to directly consume the BookInfo packet emitted by the provider
