@@ -21,6 +21,7 @@ public:
     void addBookToShelf(const BookInfo &info, bool prepend = true);
     void removeBookFromShelf(const QString &isbn);
     void clearShelf();
+    void filterBooks(const QString &searchText);
 
 signals:
     // NEW: Emitted whenever an individual book card is interactively clicked

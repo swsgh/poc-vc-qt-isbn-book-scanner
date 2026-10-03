@@ -10,6 +10,7 @@ class BookDatabaseManager;
 class BookshelfWidget;
 class BookDetailsSidebar; // Forward declare the new class
 class QLabel;
+class QLineEdit;
 
 class MainWindow : public QMainWindow
 {
@@ -23,6 +24,7 @@ private slots:
     void updateStatusLabel(const QString &text, bool isError);
     void displayBookDetails(const BookInfo &info);
     void removeBookRecord(const QString &isbn);
+    void onSearchTextChanged(const QString &text);
 
 private:
     BarcodeScannerView* m_scannerView;

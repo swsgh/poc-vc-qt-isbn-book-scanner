@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QDebug>
 #include <QMessageBox>
+#include <QLineEdit>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -36,12 +37,39 @@ MainWindow::MainWindow(QWidget *parent)
     QHBoxLayout *bottomRowLayout = new QHBoxLayout(bottomRowContainer);
     bottomRowLayout->setContentsMargins(0, 5, 0, 0); // Clean, seamless alignment
 
-    // Left side of bottom layout: Bookshelf Grid Layout View (Takes 3/4 layout footprint)
+    // CHANGED: Wrapped the bookshelf in a vertical layout container to stack the search bar underneath it
+    QWidget *bookshelfAreaContainer = new QWidget(this);
+    QVBoxLayout *bookshelfAreaLayout = new QVBoxLayout(bookshelfAreaContainer);
+    bookshelfAreaLayout->setContentsMargins(0, 0, 0, 0);
+    bookshelfAreaLayout->setSpacing(8);
+
+    // Left side item 1: Bookshelf Grid Layout View
     m_bookshelfWidget = new BookshelfWidget(this);
-    bottomRowLayout->addWidget(m_bookshelfWidget, 3);
+    bookshelfAreaLayout->addWidget(m_bookshelfWidget, 1); // Expand stretch factor to fill the layout footprint space
+
+    // Left side item 2: NEW Search Input Field anchored at the bottom
+    QLineEdit *searchBar = new QLineEdit(this);
+    searchBar->setPlaceholderText("🔍 Search by title, author, or ISBN...");
+    searchBar->setClearButtonEnabled(true); // Adds an interactive standard "✕" button to quickly clear filters
+    searchBar->setStyleSheet(
+        "QLineEdit { "
+        "  background-color: #1e1e1e; "
+        "  border: 1px solid #3a3a3a; "
+        "  border-radius: 4px; "
+        "  padding: 8px 12px; "
+        "  font-size: 13px; "
+        "  color: #ffffff; "
+        "}"
+        "QLineEdit:focus { "
+        "  border: 1px solid #3498db; "
+        "}"
+        );
+    bookshelfAreaLayout->addWidget(searchBar, 0); // Set stretch factor 0 to prevent vertical scaling expansion
+
+    // Add your nested container area directly into the primary bottom row layout split
+    bottomRowLayout->addWidget(bookshelfAreaContainer, 3); // Takes up 3/4 horizontal width
 
     // Right side of bottom layout: Dedicated Standalone Book Details Sidebar component file
-    // MOVED: All label allocations, buttons, and styles are now contained inside BookDetailsSidebar
     m_detailsSidebar = new BookDetailsSidebar(this);
     m_detailsSidebar->setVisible(false); // Hide panel on application launch until requested
     bottomRowLayout->addWidget(m_detailsSidebar, 1); // Sidebar takes up remaining 1/4 width
@@ -98,6 +126,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_bookshelfWidget, &BookshelfWidget::bookSelected, m_detailsSidebar, &BookDetailsSidebar::updateDetails);
     connect(m_detailsSidebar, &BookDetailsSidebar::deleteBookRequested, this, &MainWindow::removeBookRecord);
 
+    // --- NEW CONNECTION: Connect Search text events straight to your filter routing slot engine ---
+    connect(searchBar, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
+
     m_scannerView->startCapture();
 }
 
@@ -106,11 +137,9 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
     if (isError) {
         qCritical() << "[Scanner System Error Alert]:\n" << text;
         m_isbnLabel->setText("Ready for next scan...");
-        // Crimson accent notice box for errors
         m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #ff6b6b; padding: 10px; background: #2c1515; border: 1px solid #e74c3c; border-radius: 4px;");
     } else {
         m_isbnLabel->setText(text);
-        // Amber accent notice box for actively processing lookups
         m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #f39c12; padding: 10px; background: #2c2215; border: 1px solid #d35400; border-radius: 4px;");
     }
 }
@@ -119,7 +148,6 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
 void MainWindow::displayBookDetails(const BookInfo &info)
 {
     m_isbnLabel->setText(QString("📖 Successfully scanned: %1").arg(info.title));
-    // Emerald green accent notice box for a successful book match capture
     m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #2ecc71; padding: 15px; background: #152c1e; border: 1px solid #27ae60; border-radius: 4px;");
 
     m_detailsSidebar->updateDetails(info);
@@ -127,18 +155,15 @@ void MainWindow::displayBookDetails(const BookInfo &info)
 
 void MainWindow::removeBookRecord(const QString &isbn)
 {
-    // 1. Fetch the book data first to display its title in the warning message box
     BookInfo bookToPurge = m_dbManager->getBookByIsbn(isbn);
     QString bookTitle = bookToPurge.found ? bookToPurge.title : "this book";
 
-    // 2. Spawn a modal warning dialog box asking for verification
     QMessageBox::StandardButton confirmation;
     confirmation = QMessageBox::question(this,
                                          "Confirm Deletion",
                                          QString("Are you sure you want to permanently remove \"%1\" from your library archive?").arg(bookTitle),
                                          QMessageBox::Yes | QMessageBox::No);
 
-    // If the user clicks "No" or closes the window, abort the delete operation instantly
     if (confirmation == QMessageBox::No) {
         qDebug() << "[Archive Controller] Deletion sequence safely cancelled by user.";
         return;
@@ -146,14 +171,10 @@ void MainWindow::removeBookRecord(const QString &isbn)
 
     qDebug() << "[Archive Controller] Initiating absolute purge sequence for ISBN:" << isbn;
 
-    // 3. Proceed with deletion since user clicked "Yes"
     bool success = m_dbManager->deleteBookRecord(isbn);
 
     if (success) {
-        // Erase visual card node component from bookshelf layout view instantly
         m_bookshelfWidget->removeBookFromShelf(isbn);
-
-        // Clear and hide the sidebar panel cleanly
         m_detailsSidebar->closeSidebar();
 
         m_isbnLabel->setText("Book record removed successfully from shelf archive.");
@@ -161,4 +182,10 @@ void MainWindow::removeBookRecord(const QString &isbn)
     } else {
         updateStatusLabel("Failed to remove book from local database storage hierarchy.", true);
     }
+}
+
+// NEW SLOT: Routes search bar inputs straight through to the bookshelf filter engine
+void MainWindow::onSearchTextChanged(const QString &text)
+{
+    m_bookshelfWidget->filterBooks(text);
 }

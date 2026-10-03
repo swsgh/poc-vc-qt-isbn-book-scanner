@@ -203,3 +203,30 @@ void BookshelfWidget::clearShelf()
     m_bookCards.clear();
     rearrangeGrid();
 }
+
+void BookshelfWidget::filterBooks(const QString &searchText)
+{
+    QString cleanSearch = searchText.trimmed().toLower();
+
+    for (QWidget* card : m_bookCards) {
+        // Extract the stored BookInfo variant metadata layout from each card
+        QVariant prop = card->property("bookData");
+        if (prop.isValid() && prop.canConvert<BookInfo>()) {
+            BookInfo info = prop.value<BookInfo>();
+
+            // Match against Title, Author, or ISBN
+            bool matchesTitle = info.title.toLower().contains(cleanSearch);
+            bool matchesAuthor = info.authors.toLower().contains(cleanSearch);
+            bool matchesIsbn = info.isbn.contains(cleanSearch);
+
+            if (cleanSearch.isEmpty() || matchesTitle || matchesAuthor || matchesIsbn) {
+                card->setVisible(true);
+            } else {
+                card->setVisible(false); // Hide the card if it doesn't match
+            }
+        }
+    }
+
+    // Force layout matrix recalculation so remaining visible cards rearrange cleanly
+    rearrangeGrid();
+}
