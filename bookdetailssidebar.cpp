@@ -9,21 +9,20 @@
 BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
 {
     setFixedWidth(280);
-    setStyleSheet("background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;");
+    setStyleSheet("background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 4px;");
 
     QVBoxLayout *sidebarLayout = new QVBoxLayout(this);
-    sidebarLayout->setSpacing(12); // Give fields breathe room
+    sidebarLayout->setSpacing(12);
 
-    // --- Interactive Top Header Row containing the Close Button ---
     QHBoxLayout *headerRowLayout = new QHBoxLayout();
     QLabel *sidebarHeader = new QLabel("<b>📚 BOOK DETAILS</b>", this);
-    sidebarHeader->setStyleSheet("font-size: 13px; color: #7f8c8d; letter-spacing: 1px;");
+    sidebarHeader->setStyleSheet("font-size: 13px; color: #aaaaaa; letter-spacing: 1px;"); // Dim silver title
 
     QPushButton *closeSidebarButton = new QPushButton("✕", this);
     closeSidebarButton->setFixedSize(24, 24);
     closeSidebarButton->setStyleSheet(
-        "QPushButton { border: none; background: transparent; font-size: 14px; color: #95a5a6; font-weight: bold; }"
-        "QPushButton:hover { color: #e74c3c; background-color: #f2f3f4; border-radius: 12px; }"
+        "QPushButton { border: none; background: transparent; font-size: 14px; color: #777777; font-weight: bold; }"
+        "QPushButton:hover { color: #ff6b6b; background-color: #2a2a2a; border-radius: 12px; }"
         );
     closeSidebarButton->setCursor(Qt::PointingHandCursor);
 
@@ -31,24 +30,22 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     headerRowLayout->addWidget(closeSidebarButton, 0, Qt::AlignRight);
     sidebarLayout->addLayout(headerRowLayout);
 
-    // --- NEW: Visual Cover Frame Element ---
     m_coverLabel = new QLabel(this);
-    m_coverLabel->setFixedSize(140, 180); // Scaled nicely for a 280px sidebar
+    m_coverLabel->setFixedSize(140, 180);
     m_coverLabel->setAlignment(Qt::AlignCenter);
-    m_coverLabel->setStyleSheet("border: 1px solid #dee2e6; background: #eaeded; border-radius: 4px;");
-    sidebarLayout->addWidget(m_coverLabel, 0, Qt::AlignHCenter); // Keep centered horizontally
+    m_coverLabel->setStyleSheet("border: 1px solid #2d2d2d; background: #121212; border-radius: 4px;"); // Deep image tray
+    sidebarLayout->addWidget(m_coverLabel, 0, Qt::AlignHCenter);
 
-    // --- Detail fields tracking text items ---
     m_detailTitleLabel = new QLabel("Select a book from your shelf...", this);
     m_detailTitleLabel->setWordWrap(true);
-    m_detailTitleLabel->setStyleSheet("font-size: 14px; color: #2c3e50; font-weight: 500;");
+    m_detailTitleLabel->setStyleSheet("font-size: 14px; color: #ffffff; font-weight: 500;"); // Crisp white
 
     m_detailAuthorLabel = new QLabel("", this);
     m_detailAuthorLabel->setWordWrap(true);
-    m_detailAuthorLabel->setStyleSheet("font-size: 13px; color: #566573;");
+    m_detailAuthorLabel->setStyleSheet("font-size: 13px; color: #cccccc;"); // Mid gray
 
     m_detailIsbnLabel = new QLabel("", this);
-    m_detailIsbnLabel->setStyleSheet("font-size: 12px; color: #95a5a6; font-family: monospace;");
+    m_detailIsbnLabel->setStyleSheet("font-size: 12px; color: #888888; font-family: monospace;"); // Muted identifier text
 
     sidebarLayout->addWidget(m_detailTitleLabel);
     sidebarLayout->addWidget(m_detailAuthorLabel);
@@ -56,14 +53,14 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
 
     sidebarLayout->addStretch();
 
-    // --- Archival Delete Button Component ---
     m_deleteButton = new QPushButton("🗑️ Remove From Shelf", this);
     m_deleteButton->setMinimumHeight(35);
     m_deleteButton->setCursor(Qt::PointingHandCursor);
+    // Flat dark design with neon red frame lines matching dark modern layout themes
     m_deleteButton->setStyleSheet(
-        "QPushButton { background-color: #ffffff; border: 1px solid #e74c3c; color: #e74c3c; font-weight: bold; border-radius: 4px; font-size: 12px; }"
-        "QPushButton:hover { background-color: #e74c3c; color: #ffffff; }"
-        "QPushButton:pressed { background-color: #c0392b; border-color: #c0392b; }"
+        "QPushButton { background-color: #1e1e1e; border: 1px solid #ff4d4d; color: #ff4d4d; font-weight: bold; border-radius: 4px; font-size: 12px; }"
+        "QPushButton:hover { background-color: #ff4d4d; color: #ffffff; }"
+        "QPushButton:pressed { background-color: #cc3333; border-color: #cc3333; }"
         );
     sidebarLayout->addWidget(m_deleteButton);
 

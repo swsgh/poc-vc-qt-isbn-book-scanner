@@ -17,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     QWidget *centralWidget = new QWidget(this);
+    centralWidget->setStyleSheet("background-color: #121212;");
     QVBoxLayout *mainVerticalLayout = new QVBoxLayout(centralWidget);
 
     // 1. TOP SECTION: Scanner View Component (Fixed Top Allocation bounds)
@@ -27,7 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 2. Descriptive Footer Feedback label (Now sits neatly right below the camera)
     m_isbnLabel = new QLabel("Align ISBN barcode with the red laser line...", this);
     m_isbnLabel->setAlignment(Qt::AlignCenter);
-    m_isbnLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50; padding: 8px; background: #ecf0f1;");
+    m_isbnLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #e0e0e0; padding: 8px; background: #1e1e1e; border-radius: 4px;");
     mainVerticalLayout->addWidget(m_isbnLabel, 0); // Stretch factor 0 = minimal space
 
     // 3. BOTTOM SECTION: Bookshelf Row + Right Side Panel Container
@@ -49,7 +50,7 @@ MainWindow::MainWindow(QWidget *parent)
     mainVerticalLayout->addWidget(bottomRowContainer, 1); // Receives all primary structural scaling layout footprint!
 
     setCentralWidget(centralWidget);
-    setWindowTitle("Dynamic Library grid tracker");
+    setWindowTitle("ISBN Book Scanner");
 
     // Enlarge default application launch sizing metrics to show beautiful rows out of the box
     resize(950, 750);
@@ -104,23 +105,23 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
 {
     if (isError) {
         qCritical() << "[Scanner System Error Alert]:\n" << text;
-        qCritical() << "==================================================";
         m_isbnLabel->setText("Ready for next scan...");
-        m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #7f8c8d; padding: 10px; background: #f2f4f4;");
+        // Crimson accent notice box for errors
+        m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #ff6b6b; padding: 10px; background: #2c1515; border: 1px solid #e74c3c; border-radius: 4px;");
     } else {
         m_isbnLabel->setText(text);
-        m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #d35400; padding: 10px; background: #fdf2e9;");
+        // Amber accent notice box for actively processing lookups
+        m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #f39c12; padding: 10px; background: #2c2215; border: 1px solid #d35400; border-radius: 4px;");
     }
 }
 
 // Triggered immediately when an active scanning cycle captures metadata
 void MainWindow::displayBookDetails(const BookInfo &info)
 {
-    // Minimal camera message per previous instructions
     m_isbnLabel->setText(QString("📖 Successfully scanned: %1").arg(info.title));
-    m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #1e8449; padding: 15px; background: #e8f8f5;");
+    // Emerald green accent notice box for a successful book match capture
+    m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #2ecc71; padding: 15px; background: #152c1e; border: 1px solid #27ae60; border-radius: 4px;");
 
-    // Forward data payload out to our decoupled standalone widget file slot layout
     m_detailsSidebar->updateDetails(info);
 }
 

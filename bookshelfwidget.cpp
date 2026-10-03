@@ -13,7 +13,7 @@ BookshelfWidget::BookshelfWidget(QWidget *parent) : QWidget(parent)
     mainLayout->setContentsMargins(5, 5, 5, 5);
 
     QLabel *titleLabel = new QLabel("📚 Your Library Bookshelf Archive", this);
-    titleLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50; padding: 2px;");
+    titleLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff; padding: 2px;");
     mainLayout->addWidget(titleLabel);
 
     // --- UPDATED CONFIGURATION: VERTICAL SCROLL AREA ---
@@ -21,7 +21,7 @@ BookshelfWidget::BookshelfWidget(QWidget *parent) : QWidget(parent)
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); // Disable side-scrolling
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);     // Scroll vertically
     scrollArea->setWidgetResizable(true);
-    scrollArea->setStyleSheet("QScrollArea { border: 1px solid #dcdde1; background-color: #f5f6fa; border-radius: 6px; }");
+    scrollArea->setStyleSheet("QScrollArea { border: 1px solid #2c2c2c; background-color: #1a1a1a; border-radius: 6px; }");
 
     m_scrollContainer = new QWidget(scrollArea);
     m_shelfGridLayout = new QGridLayout(m_scrollContainer);
@@ -63,8 +63,9 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
     QWidget *bookCard = new QWidget(m_scrollContainer);
     // CHANGED: Shrunk vertical height from 190 to 142 since text layers are removed
     bookCard->setFixedSize(120, 142);
-    bookCard->setStyleSheet("QWidget { background: white; border: 1px solid #dcdde1; border-radius: 6px; }"
-                            "QWidget:hover { border: 1px solid #3498db; background: #fafafa; }");
+    // Charcoal cards with a vibrant neon neon accent border glow state highlight link
+    bookCard->setStyleSheet("QWidget { background: #242424; border: 1px solid #3a3a3a; border-radius: 6px; }"
+                            "QWidget:hover { border: 1px solid #3498db; background: #2d2d2d; }");
     bookCard->setObjectName("card_" + info.isbn);
     bookCard->setCursor(Qt::PointingHandCursor);
 
