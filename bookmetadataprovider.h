@@ -10,12 +10,13 @@
 class AbstractBookProvider;
 class QNetworkAccessManager;
 class QNetworkReply;
+class BookDatabaseManager;
 
 class BookMetadataProvider : public QObject
 {
     Q_OBJECT
 public:
-    explicit BookMetadataProvider(QObject *parent = nullptr);
+    explicit BookMetadataProvider(BookDatabaseManager* dbManager, QObject *parent = nullptr);
     ~BookMetadataProvider() override;
 
     void lookupIsbn(const QString &isbn);
@@ -29,8 +30,6 @@ private slots:
     void handlePrimaryFailure(const QString &errorMsg);
     void handleFallbackSuccess(const BookInfo &info, const QString &urlSmall, const QString &urlMedium);
     void handleFallbackFailure(const QString &errorMsg);
-
-    // Slots managing the dynamic image download hierarchy
     void handleMediumCoverFinished(QNetworkReply* reply);
     void handleSmallCoverFinished(QNetworkReply* reply);
     void resetScannerCooldown();
@@ -41,12 +40,12 @@ private:
 
     AbstractBookProvider* m_openLibrary;
     AbstractBookProvider* m_googleBooks;
+    BookDatabaseManager* m_dbManager;
     std::unique_ptr<QNetworkAccessManager> m_imageNetworkManager;
 
     QString m_lastScannedIsbn;
     bool m_isCooldownActive;
 
-    // Cache tracking properties during the async cascade
     BookInfo m_pendingInfo;
     QString m_fallbackUrlSmall;
 };

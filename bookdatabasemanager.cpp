@@ -97,3 +97,15 @@ BookInfo BookDatabaseManager::getBookByIsbn(const QString &isbn)
     }
     return info;
 }
+
+bool BookDatabaseManager::hasBookInLocalDatabase(const QString &isbn)
+{
+    QSqlQuery query;
+    query.prepare("SELECT COUNT(*) FROM books WHERE isbn = ?");
+    query.addBindValue(isbn);
+
+    if (query.exec() && query.next()) {
+        return query.value(0).toInt() > 0;
+    }
+    return false;
+}

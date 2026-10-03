@@ -17,6 +17,8 @@ public:
     // Retrieves all saved items sorted by the newest scan entry sequence timestamp
     QList<BookInfo> getAllSavedBooks();
     BookInfo getBookByIsbn(const QString &isbn);
+    // Returns true if the ISBN primary key exists in the database table rows
+    bool hasBookInLocalDatabase(const QString &isbn);
 
 public slots:
     // Slot designed to directly consume the BookInfo packet emitted by the provider

@@ -13,35 +13,32 @@ MainWindow::MainWindow(QWidget *parent)
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(centralWidget);
 
-    // 1. Scanner View Component (Top Allocation)
     m_scannerView = new BarcodeScannerView(this);
-    layout->addWidget(m_scannerView, 3); // Stretch factor 3 keeps camera viewfinder tall
+    layout->addWidget(m_scannerView, 3);
 
-    // 2. Active Metadata Tracking Footer Label View (Center Allocation)
     m_isbnLabel = new QLabel("Align ISBN barcode with the red laser line...", this);
     m_isbnLabel->setAlignment(Qt::AlignCenter);
     m_isbnLabel->setWordWrap(true);
     m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #2c3e50; padding: 10px; background: #ecf0f1;");
     layout->addWidget(m_isbnLabel, 0);
 
-    // 3. Bookshelf Widget Component View (Bottom Allocation)
+    setCentralWidget(centralWidget);
+    setWindowTitle("Virtual Bookshelf Tracker");
+    resize(850, 750);
+
+    // Initialize individual application component controllers
+    m_dbManager = new BookDatabaseManager(this);
+    m_dbManager->initDatabase("scanned_books.db");
+
+    m_metadataProvider = new BookMetadataProvider(m_dbManager, this);
+
     m_bookshelfWidget = new BookshelfWidget(this);
     layout->addWidget(m_bookshelfWidget, 2); // Stretch factor 2 allocates proper room for covers layout row
 
-    setCentralWidget(centralWidget);
-    setWindowTitle("Virtual Bookshelf Tracker");
-    resize(850, 750); // Provide extra vertical window bounds canvas space for the new bookshelf rows
-
-    // Initialize individual application component controllers
-    m_metadataProvider = new BookMetadataProvider(this);
-    m_dbManager = new BookDatabaseManager(this);
-
-    if (m_dbManager->initDatabase("scanned_books.db")) {
-        // --- POPULATE BOOKSHELF HISTORY ROW ON BOOT ---
-        QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
-        for (const BookInfo &book : historicalBooks) {
-            m_bookshelfWidget->addBookToShelf(book, false); // Append historically sorted data rows
-        }
+    // --- POPULATE BOOKSHELF HISTORY ROW ON BOOT ---
+    QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
+    for (const BookInfo &book : historicalBooks) {
+        m_bookshelfWidget->addBookToShelf(book, false); // Append historically sorted data rows
     }
 
     // Connect functional interaction pipelines across classes
