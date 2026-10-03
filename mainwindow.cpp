@@ -50,14 +50,16 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &MainWindow::displayBookDetails);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
 
-    // CRITICAL: When database finishes saving a new live scan entry record, slide it straight into the visual shelf view row!
     connect(m_dbManager, &BookDatabaseManager::bookSavedSuccessfully, this, [this](const QString &isbn) {
-        // Re-read or capture the latest processed record payload to render it in front of the active view card row sequence
-        QList<BookInfo> freshlySaved = m_dbManager->getAllSavedBooks();
-        if (!freshlySaved.isEmpty()) {
-            m_bookshelfWidget->addBookToShelf(freshlySaved.first(), true); // Slide to the front of the list elegantly
+        // Extract the specific book record that was just written to the database
+        BookInfo freshRecord = m_dbManager->getBookByIsbn(isbn);
+
+        if (freshRecord.found) {
+            // Send it to the shelf; our new logic will replace or prepend it without duplicates!
+            m_bookshelfWidget->addBookToShelf(freshRecord, true);
         }
-        m_isbnLabel->setText(m_isbnLabel->text() + "\n💾 Saved securely into local archive database.");
+
+        m_isbnLabel->setText(m_isbnLabel->text() + "\nLocal database cache repository successfully updated.");
     });
 
     connect(m_dbManager, &BookDatabaseManager::databaseError, this, [this](const QString &err){

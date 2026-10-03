@@ -79,3 +79,21 @@ QList<BookInfo> BookDatabaseManager::getAllSavedBooks()
     }
     return bookList;
 }
+
+BookInfo BookDatabaseManager::getBookByIsbn(const QString &isbn)
+{
+    BookInfo info;
+    QSqlQuery query;
+    query.prepare("SELECT isbn, title, authors, engine_source, cover_blob FROM books WHERE isbn = ?");
+    query.addBindValue(isbn);
+
+    if (query.exec() && query.next()) {
+        info.found = true;
+        info.isbn = query.value(0).toString();
+        info.title = query.value(1).toString();
+        info.authors = query.value(2).toString();
+        info.engineSource = query.value(3).toString();
+        info.coverData = query.value(4).toByteArray();
+    }
+    return info;
+}
