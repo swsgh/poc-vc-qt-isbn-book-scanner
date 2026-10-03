@@ -14,17 +14,14 @@ MainWindow::MainWindow(QWidget *parent)
     QVBoxLayout *layout = new QVBoxLayout(centralWidget);
 
     m_scannerView = new BarcodeScannerView(this);
-    layout->addWidget(m_scannerView, 3);
+    m_scannerView->setMaximumSize(400, 240);
+    layout->addWidget(m_scannerView, 0, Qt::AlignHCenter);
 
     m_isbnLabel = new QLabel("Align ISBN barcode with the red laser line...", this);
     m_isbnLabel->setAlignment(Qt::AlignCenter);
     m_isbnLabel->setWordWrap(true);
     m_isbnLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #2c3e50; padding: 10px; background: #ecf0f1;");
-    layout->addWidget(m_isbnLabel, 0);
-
-    setCentralWidget(centralWidget);
-    setWindowTitle("Virtual Bookshelf Tracker");
-    resize(850, 750);
+    layout->addWidget(m_isbnLabel);
 
     // Initialize individual application component controllers
     m_dbManager = new BookDatabaseManager(this);
@@ -33,7 +30,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_metadataProvider = new BookMetadataProvider(m_dbManager, this);
 
     m_bookshelfWidget = new BookshelfWidget(this);
-    layout->addWidget(m_bookshelfWidget, 2); // Stretch factor 2 allocates proper room for covers layout row
+    layout->addWidget(m_bookshelfWidget, 1);
+
+    setCentralWidget(centralWidget);
+    setWindowTitle("Virtual Bookshelf Tracker");
+    resize(850, 750);
 
     // --- POPULATE BOOKSHELF HISTORY ROW ON BOOT ---
     QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
