@@ -39,18 +39,10 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
     QWidget *existingCard = m_scrollContainer->findChild<QWidget*>("card_" + info.isbn);
 
     if (existingCard) {
-        // Cache the newly updated BookInfo into the existing card property fields
         existingCard->setProperty("bookData", QVariant::fromValue(info));
 
         QLabel *coverLabel = existingCard->findChild<QLabel*>("coverLabel");
-        QLabel *titleLabel = existingCard->findChild<QLabel*>("titleLabel");
-        QLabel *authorLabel = existingCard->findChild<QLabel*>("authorLabel");
-
-        if (coverLabel && titleLabel && authorLabel) {
-            titleLabel->setText(info.title);
-            authorLabel->setText(info.authors);
-            titleLabel->setToolTip(info.title);
-
+        if (coverLabel) {
             QPixmap coverPixmap;
             if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
                 coverLabel->setPixmap(coverPixmap.scaled(coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
@@ -69,28 +61,26 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
 
     // Build standard card elements
     QWidget *bookCard = new QWidget(m_scrollContainer);
-    bookCard->setFixedSize(120, 190);
-    // Added a visual hover/pointer effect so users intuitively know it is clickable
+    // CHANGED: Shrunk vertical height from 190 to 142 since text layers are removed
+    bookCard->setFixedSize(120, 142);
     bookCard->setStyleSheet("QWidget { background: white; border: 1px solid #dcdde1; border-radius: 6px; }"
                             "QWidget:hover { border: 1px solid #3498db; background: #fafafa; }");
     bookCard->setObjectName("card_" + info.isbn);
     bookCard->setCursor(Qt::PointingHandCursor);
 
-    // Dynamic Binding: Inject the custom BookInfo struct data directly into the Qt Object metadata layer
     bookCard->setProperty("bookData", QVariant::fromValue(info));
-    // Install the event filter directly on the card wrapper component container
     bookCard->installEventFilter(this);
 
     QVBoxLayout *cardLayout = new QVBoxLayout(bookCard);
-    cardLayout->setContentsMargins(6, 6, 6, 6);
-    cardLayout->setSpacing(4);
+    // CHANGED: Set padding down to 5px for a tighter, cleaner framing edge
+    cardLayout->setContentsMargins(5, 5, 5, 5);
+    cardLayout->setSpacing(0);
 
     QLabel *coverLabel = new QLabel(bookCard);
     coverLabel->setObjectName("coverLabel");
-    coverLabel->setFixedSize(108, 130);
+    // CHANGED: Expanded fixed frame layout up from 130 to 132 to fill card interior boundaries nicely
+    coverLabel->setFixedSize(110, 132);
     coverLabel->setAlignment(Qt::AlignCenter);
-
-    // Crucial: Child labels block mouse events by default; pass clicks through to the bookCard parent
     coverLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 
     QPixmap coverPixmap;
@@ -101,22 +91,8 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
     }
     cardLayout->addWidget(coverLabel);
 
-    QLabel *titleLabel = new QLabel(info.title, bookCard);
-    titleLabel->setObjectName("titleLabel");
-    titleLabel->setStyleSheet("font-size: 11px; font-weight: bold; border: none; background: transparent;");
-    titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    titleLabel->setToolTip(info.title);
-    titleLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-    cardLayout->addWidget(titleLabel);
+    // REMOVED: Title and Author QLabels are deleted from this section entirely!
 
-    QLabel *authorLabel = new QLabel(info.authors, bookCard);
-    authorLabel->setObjectName("authorLabel");
-    authorLabel->setStyleSheet("font-size: 10px; color: #7f8c8d; border: none; background: transparent;");
-    authorLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    authorLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-    cardLayout->addWidget(authorLabel);
-
-    // Save references to track card arrays for line wrapping calculations
     if (prepend) {
         m_bookCards.prepend(bookCard);
     } else {
@@ -146,7 +122,6 @@ bool BookshelfWidget::eventFilter(QObject *watched, QEvent *event)
     return QWidget::eventFilter(watched, event);
 }
 
-// Dynamic grid allocation math calculation engine loop
 void BookshelfWidget::rearrangeGrid()
 {
     QLayoutItem *child;
@@ -155,6 +130,7 @@ void BookshelfWidget::rearrangeGrid()
     }
 
     int shelfWidth = width() - 40;
+    // CHANGED: Adjusted calculations to respect the newly optimized footprint sizing boundaries
     int cardWidth = 120 + 20;
 
     int maxColumns = qMax(1, shelfWidth / cardWidth);
