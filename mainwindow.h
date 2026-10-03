@@ -9,6 +9,7 @@ class BookMetadataProvider;
 class BookDatabaseManager;
 class BookshelfWidget;
 class QLabel;
+class QWidget; // NEW: Forward declare QWidget for the sidebar pointer
 
 class MainWindow : public QMainWindow
 {
@@ -23,8 +24,11 @@ private slots:
     void displayBookDetails(const BookInfo &info);
     void handleDatabaseConfirmation(const QString &isbn);
 
-    // NEW: Slot to update sidebar when a bookshelf book is clicked or a new book is scanned
+    // Slot to update sidebar when a bookshelf book is clicked or a new book is scanned
     void updateDetailsSidebar(const BookInfo &info);
+
+    // NEW: Slot triggered by the "✕" button to completely collapse the panel
+    void closeDetailsSidebar();
 
 private:
     BarcodeScannerView* m_scannerView;
@@ -33,7 +37,8 @@ private:
     BookshelfWidget* m_bookshelfWidget;
     QLabel* m_isbnLabel;
 
-    // NEW: UI components tracking individual sidebar text rows
+    // NEW & UPDATED SIDEBAR MEMBERS
+    QWidget* m_sidebarWidget;   // NEW: Primary container widget used to toggle panel visibility
     QLabel* m_detailTitleLabel;
     QLabel* m_detailAuthorLabel;
     QLabel* m_detailIsbnLabel;
