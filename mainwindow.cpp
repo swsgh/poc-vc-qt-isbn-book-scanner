@@ -138,13 +138,42 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_dbManager, &BookDatabaseManager::bookSavedSuccessfully, this, [this](const QString &isbn) {
         BookInfo freshRecord = m_dbManager->getBookByIsbn(isbn);
         if (freshRecord.found) {
-            m_syncManager->uploadBookToServer(freshRecord); // Push cloud payload
+            // Optimistically attempt an upload, but log it into the local queue beforehand
+            m_dbManager->addPendingUpload(isbn);
+            m_syncManager->uploadBookToServer(freshRecord);
         }
     });
 
     // Update cloud backend when a local book deletion occurs
     connect(m_detailsSidebar, &BookDetailsSidebar::deleteBookRequested, this, [this](const QString &isbn) {
-        m_syncManager->deleteBookFromServer(isbn); // Remove cloud payload
+        // Add deletion to queue before hitting the server resource route
+        m_dbManager->addPendingDelete(isbn);
+        m_syncManager->deleteBookFromServer(isbn);
+    });
+
+    connect(m_syncManager, &BookSyncManager::uploadSucceeded, m_dbManager, &BookDatabaseManager::removePendingAction);
+    connect(m_syncManager, &BookSyncManager::deleteSucceeded, m_dbManager, &BookDatabaseManager::removePendingAction);
+
+    // 4. NEW: Create a routine to flush the queue when internet connectivity is validated
+    connect(m_syncManager, &BookSyncManager::loginSuccess, this, [this]() {
+        qDebug() << "[Sync Engine] Connection validated. Processing offline pending queue backlog...";
+
+        // Handle backlogged deletions first
+        QStringList deletes = m_dbManager->getPendingDeletes();
+        for (const QString &isbn : deletes) {
+            m_syncManager->deleteBookFromServer(isbn);
+        }
+
+        // Handle backlogged uploads next
+        QStringList uploads = m_dbManager->getPendingUploads();
+        for (const QString &isbn : uploads) {
+            BookInfo book = m_dbManager->getBookByIsbn(isbn);
+            if (book.found) {
+                m_syncManager->uploadBookToServer(book);
+            } else {
+                m_dbManager->removePendingAction(isbn); // Clean up if book no longer exists locally
+            }
+        }
     });
 
     // Capture remote download data packets to modify local caches seamlessly

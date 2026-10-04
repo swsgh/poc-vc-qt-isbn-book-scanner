@@ -111,10 +111,12 @@ void BookSyncManager::uploadBookToServer(const BookInfo &info)
     QNetworkReply *reply = m_networkManager->post(request, multiPart);
     multiPart->setParent(reply); // Memory safety lifecycle hook assignment
 
-    connect(reply, &QNetworkReply::finished, this, [reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, info]() {
         reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            qWarning() << "[Sync Engine Log Warning] Failed uploading scanned book:" << reply->errorString();
+        if (reply->error() == QNetworkReply::NoError) {
+            emit uploadSucceeded(info.isbn); // Notify MainWindow to remove from queue
+        } else {
+            qWarning() << "[Sync Engine] Upload failed, remaining in offline queue:" << reply->errorString();
         }
     });
 }
@@ -126,10 +128,12 @@ void BookSyncManager::deleteBookFromServer(const QString &isbn)
     QNetworkRequest request = createAuthenticatedRequest("/api/books/delete/" + isbn);
     QNetworkReply *reply = m_networkManager->deleteResource(request);
 
-    connect(reply, &QNetworkReply::finished, this, [reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, isbn]() {
         reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            qWarning() << "[Sync Engine Log Warning] Server deletion command update rejected:" << reply->errorString();
+        if (reply->error() == QNetworkReply::NoError) {
+            emit deleteSucceeded(isbn); // Notify MainWindow to remove from queue
+        } else {
+            qWarning() << "[Sync Engine] Deletion failed, remaining in offline queue:" << reply->errorString();
         }
     });
 }

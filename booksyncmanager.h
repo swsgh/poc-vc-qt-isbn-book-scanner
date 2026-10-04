@@ -30,6 +30,8 @@ signals:
     void loginSuccess();
     void remoteBookUpdatesDownloaded(const QList<BookInfo> &booksToSave, const QStringList &isbnsToDelete);
     void networkErrorOccurred(const QString &errorMsg);
+    void uploadSucceeded(const QString &isbn);
+    void deleteSucceeded(const QString &isbn);
 
 private:
     QString m_serverUrl;

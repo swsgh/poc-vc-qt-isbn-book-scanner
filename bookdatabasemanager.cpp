@@ -35,6 +35,17 @@ bool BookDatabaseManager::initDatabase(const QString &dbPath)
         return false;
     }
 
+    QString createQueueTableSql =
+        "CREATE TABLE IF NOT EXISTS sync_queue ("
+        "  isbn TEXT PRIMARY KEY,"
+        "  action_type TEXT NOT NULL" // Tracks whether we need to "UPLOAD" or "DELETE" this book online
+        ")";
+
+    if (!query.exec(createQueueTableSql)) {
+        emit databaseError("Failed to initialize sync queue table: " + query.lastError().text());
+        return false;
+    }
+
     return true;
 }
 
@@ -126,4 +137,39 @@ bool BookDatabaseManager::deleteBookRecord(const QString &isbn)
 
     // Verify a row was actually affected by checking the database engine footprint response
     return query.numRowsAffected() > 0;
+}
+
+void BookDatabaseManager::addPendingUpload(const QString &isbn) {
+    QSqlQuery query;
+    query.prepare("INSERT OR REPLACE INTO sync_queue (isbn, action_type) VALUES (?, 'UPLOAD')");
+    query.addBindValue(isbn);
+    query.exec();
+}
+
+void BookDatabaseManager::addPendingDelete(const QString &isbn) {
+    QSqlQuery query;
+    query.prepare("INSERT OR REPLACE INTO sync_queue (isbn, action_type) VALUES (?, 'DELETE')");
+    query.addBindValue(isbn);
+    query.exec();
+}
+
+QStringList BookDatabaseManager::getPendingUploads() {
+    QStringList list;
+    QSqlQuery query("SELECT isbn FROM sync_queue WHERE action_type = 'UPLOAD'");
+    while (query.next()) list.append(query.value(0).toString());
+    return list;
+}
+
+QStringList BookDatabaseManager::getPendingDeletes() {
+    QStringList list;
+    QSqlQuery query("SELECT isbn FROM sync_queue WHERE action_type = 'DELETE'");
+    while (query.next()) list.append(query.value(0).toString());
+    return list;
+}
+
+void BookDatabaseManager::removePendingAction(const QString &isbn) {
+    QSqlQuery query;
+    query.prepare("DELETE FROM sync_queue WHERE WHERE isbn = ?");
+    query.addBindValue(isbn);
+    query.exec();
 }
