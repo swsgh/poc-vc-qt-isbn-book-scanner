@@ -33,6 +33,7 @@
 #include <QQmlError>
 #include <QQmlContext>
 #include <QQuickWidget>
+#include <QQuickItem>
 #include <QUrl>
 #include <algorithm>
 
@@ -190,13 +191,16 @@ void MainWindow::setupUi()
     m_bookDetailsQuickWidget->setMinimumWidth(260);
     m_bookDetailsQuickWidget->setMaximumWidth(320);
     m_bookDetailsQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    m_bookDetailsQuickWidget->rootContext()->setContextProperty("bookSelection", this);
     connect(m_bookDetailsQuickWidget, &QQuickWidget::statusChanged, this,
             [this](QQuickWidget::Status status) {
                 if (status == QQuickWidget::Error) {
                     for (const QQmlError &error : m_bookDetailsQuickWidget->errors()) {
                         qWarning().noquote() << error.toString();
                     }
+                } else if (status == QQuickWidget::Ready
+                           && m_bookDetailsQuickWidget->rootObject()) {
+                    m_bookDetailsQuickWidget->rootObject()->setProperty(
+                        "selection", QVariant::fromValue(static_cast<QObject *>(this)));
                 }
             });
     m_bookDetailsQuickWidget->setSource(

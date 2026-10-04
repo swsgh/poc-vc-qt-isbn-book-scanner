@@ -4,6 +4,8 @@ import QtQuick.Controls
 Rectangle {
     id: root
 
+    property var selection: null
+
     color: systemPalette.base
     border.color: systemPalette.mid
     radius: 6
@@ -33,7 +35,7 @@ Rectangle {
                 id: closeButton
                 text: "×"
                 Accessible.name: "Close book details"
-                onClicked: bookSelection.clearSelectedBook()
+                onClicked: if (root.selection) root.selection.clearSelectedBook()
             }
         }
 
@@ -53,7 +55,7 @@ Rectangle {
                     id: coverImage
                     anchors.fill: parent
                     anchors.margins: 2
-                    source: bookSelection.selectedBookCoverSource
+                    source: root.selection ? root.selection.selectedBookCoverSource : ""
                     fillMode: Image.PreserveAspectFit
                     visible: status === Image.Ready
                 }
@@ -61,7 +63,7 @@ Rectangle {
                 Text {
                     anchors.fill: parent
                     anchors.margins: 12
-                    text: bookSelection.selectedBookTitle
+                    text: root.selection ? root.selection.selectedBookTitle : ""
                     color: systemPalette.windowText
                     font.pixelSize: 13
                     font.bold: true
@@ -75,7 +77,7 @@ Rectangle {
 
         Text {
             width: parent.width
-            text: bookSelection.selectedBookTitle
+            text: root.selection ? root.selection.selectedBookTitle : ""
             color: systemPalette.windowText
             font.pixelSize: 15
             font.bold: true
@@ -85,7 +87,7 @@ Rectangle {
 
         Text {
             width: parent.width
-            text: bookSelection.selectedBookAuthors || "Unknown"
+            text: root.selection ? (root.selection.selectedBookAuthors || "Unknown") : "Unknown"
             color: systemPalette.windowText
             font.italic: true
             horizontalAlignment: Text.AlignHCenter
@@ -94,7 +96,7 @@ Rectangle {
 
         Text {
             width: parent.width
-            text: bookSelection.selectedBookMetadata
+            text: root.selection ? root.selection.selectedBookMetadata : ""
             color: systemPalette.windowText
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
@@ -103,7 +105,7 @@ Rectangle {
 
         Text {
             width: parent.width
-            text: "ISBN: " + bookSelection.selectedBookIsbn
+            text: "ISBN: " + (root.selection ? root.selection.selectedBookIsbn : "")
             color: systemPalette.windowText
             font.family: "monospace"
             font.pixelSize: 12
@@ -114,7 +116,7 @@ Rectangle {
         Button {
             width: parent.width
             text: "Remove book"
-            onClicked: bookSelection.removeSelectedBook()
+            onClicked: if (root.selection) root.selection.removeSelectedBook()
         }
     }
 }
