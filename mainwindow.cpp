@@ -2,7 +2,6 @@
 #include "barcodescannerview.h"
 #include "bookmetadataprovider.h"
 #include "bookdatabasemanager.h"
-#include "bookshelfwidget.h"
 #include "bookdetailssidebar.h"
 #include "booksyncmanager.h"
 #include "booksynccoordinator.h"
@@ -32,6 +31,10 @@
 #include <QSizePolicy>
 #include <QSortFilterProxyModel>
 #include <QFileDialog>
+#include <QQmlError>
+#include <QQmlContext>
+#include <QQuickWidget>
+#include <QUrl>
 #include <algorithm>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -159,9 +162,22 @@ void MainWindow::setupUi()
     bookshelfAreaLayout->setContentsMargins(0, 0, 0, 0);
     bookshelfAreaLayout->setSpacing(8);
 
-    m_bookshelfWidget = new BookshelfWidget(this);
-    m_bookshelfWidget->setModel(m_bookFilterModel);
-    bookshelfAreaLayout->addWidget(m_bookshelfWidget, 1);
+    m_bookshelfQuickWidget = new QQuickWidget(bookshelfAreaContainer);
+    m_bookshelfQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    m_bookshelfQuickWidget->rootContext()->setContextProperty(
+        "bookCollection", m_bookFilterModel);
+    m_bookshelfQuickWidget->rootContext()->setContextProperty("bookSelection", this);
+    connect(m_bookshelfQuickWidget, &QQuickWidget::statusChanged, this,
+            [this](QQuickWidget::Status status) {
+                if (status == QQuickWidget::Error) {
+                    for (const QQmlError &error : m_bookshelfQuickWidget->errors()) {
+                        qWarning().noquote() << error.toString();
+                    }
+                }
+            });
+    m_bookshelfQuickWidget->setSource(
+        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/BookshelfView.qml")));
+    bookshelfAreaLayout->addWidget(m_bookshelfQuickWidget, 1);
 
     m_searchBar = new QLineEdit(this);
     m_searchBar->setObjectName("bookSearchBar");
@@ -326,7 +342,6 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
         "QPushButton:hover { background-color: %4; color: %5; }")
         .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
 
-    m_bookshelfWidget->applyPalette(palette);
     m_detailsSidebar->applyPalette(palette);
     applyStatusStyle(m_statusLabel->text(), m_statusTextColor);
     m_applyingPalette = false;
@@ -403,7 +418,6 @@ void MainWindow::setupConnections()
         updateStatusLabel(err, true);
     });
 
-    connect(m_bookshelfWidget, &BookshelfWidget::bookSelected, m_detailsSidebar, &BookDetailsSidebar::updateDetails);
     connect(m_detailsSidebar, &BookDetailsSidebar::deleteBookRequested, this, &MainWindow::removeBookRecord);
     connect(m_searchBar, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
     connect(m_metadataProvider, &BookMetadataProvider::coverCached, this,
@@ -586,4 +600,12 @@ void MainWindow::removeBookRecord(const QString &isbn)
 void MainWindow::onSearchTextChanged(const QString &text)
 {
     m_bookFilterModel->setFilterFixedString(text.trimmed());
+}
+
+void MainWindow::selectBook(const QString &isbn)
+{
+    const BookInfo info = m_dbManager->getBookByIsbn(isbn);
+    if (info.found) {
+        m_detailsSidebar->updateDetails(info);
+    }
 }

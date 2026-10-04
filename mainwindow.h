@@ -7,12 +7,12 @@
 class BarcodeScannerView;
 class BookMetadataProvider;
 class BookDatabaseManager;
-class BookshelfWidget;
 class BookDetailsSidebar;
 class BookSyncManager;
 class BookSyncCoordinator;
 class BookCollectionModel;
 class QSortFilterProxyModel;
+class QQuickWidget;
 class QAction;
 class QEvent;
 class QLabel;
@@ -28,6 +28,8 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override = default;
+
+    Q_INVOKABLE void selectBook(const QString &isbn);
 
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
@@ -61,12 +63,12 @@ private:
     BarcodeScannerView* m_scannerView = nullptr;
     BookMetadataProvider* m_metadataProvider = nullptr;
     BookDatabaseManager* m_dbManager = nullptr;
-    BookshelfWidget* m_bookshelfWidget = nullptr;
     BookDetailsSidebar* m_detailsSidebar = nullptr;
     BookSyncManager* m_syncManager = nullptr;
     BookSyncCoordinator* m_syncCoordinator = nullptr;
     BookCollectionModel* m_bookCollectionModel = nullptr;
     QSortFilterProxyModel* m_bookFilterModel = nullptr;
+    QQuickWidget* m_bookshelfQuickWidget = nullptr;
     QWidget* m_scannerPanel = nullptr;
     QLabel* m_statusLabel = nullptr;
     QLabel* m_syncConnectionIndicator = nullptr;

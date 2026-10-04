@@ -15,11 +15,17 @@ find_package(Qt6 REQUIRED COMPONENTS
     Core
     Gui
     Widgets
+    Qml
+    Quick
+    QuickControls2
+    QuickWidgets
     Sql
     Network
     Multimedia
     MultimediaWidgets
 )
+
+qt_policy(SET QTP0001 NEW)
 
 # 2. Configure ZXing-C++ Subdirectory Flags (Scoped Dependencies)
 # Disable optional components to accelerate build times
@@ -79,11 +85,22 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     README.md
 )
 
+qt_add_qml_module(ISBNBookScanner
+    URI ISBNBookScanner
+    VERSION 1.0
+    QML_FILES
+        BookshelfView.qml
+)
+
 # 4. Target Link Libraries & Platform Setup
 target_link_libraries(ISBNBookScanner PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::QuickWidgets
     Qt6::Sql
     Qt6::Network
     Qt6::Multimedia
