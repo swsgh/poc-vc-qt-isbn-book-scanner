@@ -31,10 +31,20 @@ BookSyncManager::BookSyncManager(const QString &serverUrl, QObject *parent)
     m_networkManager = new QNetworkAccessManager(this);
 }
 
+void BookSyncManager::setServerUrl(const QString &serverUrl)
+{
+    m_serverUrl = serverUrl.trimmed();
+    while (m_serverUrl.endsWith('/')) {
+        m_serverUrl.chop(1);
+    }
+}
+
 QNetworkRequest BookSyncManager::createJsonRequest(const QString &endpointPath) const
 {
     QNetworkRequest request(QUrl(m_serverUrl + endpointPath));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
     return request;
 }
 

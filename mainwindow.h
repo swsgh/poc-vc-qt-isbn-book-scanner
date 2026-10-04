@@ -34,6 +34,7 @@ private slots:
     void submitManualIsbn();
     void promptRegisterAccount();
     void promptLoginAccount();
+    bool promptSyncServerUrl(QString &serverUrl);
     void syncNow();
     void logoutSync();
     void toggleCameraView();

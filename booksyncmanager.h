@@ -17,6 +17,7 @@ public:
     // Session Management API
     void registerAccount(const QString &username, const QString &password);
     void loginAccount(const QString &username, const QString &password);
+    void setServerUrl(const QString &serverUrl);
     void logoutAccount();
     void setSyncCheckpoint(qint64 timestamp, bool hasCheckpoint);
     bool isAuthenticated() const { return !m_token.isEmpty(); }

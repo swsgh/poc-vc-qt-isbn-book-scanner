@@ -21,6 +21,8 @@
 #include <QApplication>
 #include <QEvent>
 #include <QPalette>
+#include <QSettings>
+#include <QUrl>
 #include <QFrame>
 #include <QPushButton>
 #include <QToolButton>
@@ -54,8 +56,12 @@ void MainWindow::initializeApplication()
     setupDatabase();
     populateBookshelf();
 
-    m_syncManager = new BookSyncManager(
-        qEnvironmentVariable("BOOKSHELF_SYNC_URL", "http://127.0.0.1:8000"), this);
+    QSettings settings;
+    const QString configuredUrl = qEnvironmentVariable("BOOKSHELF_SYNC_URL");
+    const QString serverUrl = configuredUrl.isEmpty()
+        ? settings.value("sync/server_url", "http://127.0.0.1:8000").toString()
+        : configuredUrl;
+    m_syncManager = new BookSyncManager(serverUrl, this);
     setupConnections();
     setupSync();
 }
@@ -354,6 +360,9 @@ void MainWindow::setupSync()
 
 void MainWindow::promptRegisterAccount()
 {
+    QString serverUrl;
+    if (!promptSyncServerUrl(serverUrl)) return;
+
     bool accepted = false;
     const QString username = QInputDialog::getText(
         this, "Register Sync Account", "Username:", QLineEdit::Normal, {}, &accepted);
@@ -366,11 +375,15 @@ void MainWindow::promptRegisterAccount()
     m_syncManager->setSyncCheckpoint(
         m_dbManager->getSyncCheckpoint(username.trimmed()),
         m_dbManager->hasSyncCheckpoint(username.trimmed()));
+    m_syncManager->setServerUrl(serverUrl);
     m_syncManager->registerAccount(username.trimmed(), password);
 }
 
 void MainWindow::promptLoginAccount()
 {
+    QString serverUrl;
+    if (!promptSyncServerUrl(serverUrl)) return;
+
     bool accepted = false;
     const QString username = QInputDialog::getText(
         this, "Log In to Sync", "Username:", QLineEdit::Normal, {}, &accepted);
@@ -383,7 +396,35 @@ void MainWindow::promptLoginAccount()
     m_syncManager->setSyncCheckpoint(
         m_dbManager->getSyncCheckpoint(username.trimmed()),
         m_dbManager->hasSyncCheckpoint(username.trimmed()));
+    m_syncManager->setServerUrl(serverUrl);
     m_syncManager->loginAccount(username.trimmed(), password);
+}
+
+bool MainWindow::promptSyncServerUrl(QString &serverUrl)
+{
+    QSettings settings;
+    const QString environmentUrl = qEnvironmentVariable("BOOKSHELF_SYNC_URL");
+    const QString defaultUrl = environmentUrl.isEmpty()
+        ? settings.value("sync/server_url", "http://127.0.0.1:8000").toString()
+        : environmentUrl;
+    bool accepted = false;
+    const QString enteredUrl = QInputDialog::getText(
+        this, "Sync Server", "Server URL:", QLineEdit::Normal, defaultUrl, &accepted);
+    if (!accepted) return false;
+
+    const QString normalizedUrl = enteredUrl.trimmed();
+    const QUrl url(normalizedUrl);
+    const QString scheme = url.scheme().toLower();
+    if (!url.isValid() || url.host().isEmpty()
+        || (scheme != "http" && scheme != "https")) {
+        QMessageBox::warning(
+            this, "Invalid Server URL", "Enter an absolute http:// or https:// server URL.");
+        return false;
+    }
+
+    serverUrl = normalizedUrl;
+    settings.setValue("sync/server_url", serverUrl);
+    return true;
 }
 
 void MainWindow::syncNow()
