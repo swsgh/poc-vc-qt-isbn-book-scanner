@@ -76,7 +76,6 @@ signals:
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
     void displayBookDetails(const BookInfo &info);
-    void removeBookRecord(const QString &isbn);
 
 protected:
     void changeEvent(QEvent *event) override;

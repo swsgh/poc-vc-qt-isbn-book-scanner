@@ -11,7 +11,6 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
-#include <QMessageBox>
 #include <QApplication>
 #include <QEvent>
 #include <QPalette>
@@ -212,8 +211,7 @@ bool MainWindow::submitManualIsbn(const QString &input)
             return character >= QLatin1Char('0') && character <= QLatin1Char('9');
         });
     if (!validLength || !containsOnlyDigits) {
-        QMessageBox::warning(this, "Invalid Input",
-                             "ISBN must be a string of 10 or 13 numbers.");
+        applyStatusStyle("ISBN must be a string of 10 or 13 numbers.", "#ff6b6b");
         return false;
     }
 
@@ -457,21 +455,6 @@ QString MainWindow::scannerStatusColor() const
         : m_statusTextColor;
 }
 
-void MainWindow::removeBookRecord(const QString &isbn)
-{
-    const auto confirmation = QMessageBox::question(
-        this,
-        "Remove Book",
-        "Are you sure you want to remove this book from your collection?",
-        QMessageBox::Yes | QMessageBox::No);
-
-    if (confirmation == QMessageBox::No) {
-        return;
-    }
-
-    m_syncCoordinator->removeBook(isbn);
-}
-
 void MainWindow::setBookSearchText(const QString &text)
 {
     m_bookFilterModel->setFilterFixedString(text.trimmed());
@@ -498,7 +481,7 @@ void MainWindow::clearSelectedBook()
 void MainWindow::removeSelectedBook()
 {
     if (m_selectedBook.found) {
-        removeBookRecord(m_selectedBook.isbn);
+        m_syncCoordinator->removeBook(m_selectedBook.isbn);
     }
 }
 

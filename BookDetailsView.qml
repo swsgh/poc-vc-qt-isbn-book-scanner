@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Rectangle {
     id: root
@@ -116,7 +117,45 @@ Rectangle {
         Button {
             width: parent.width
             text: "Remove book"
-            onClicked: if (root.selection) root.selection.removeSelectedBook()
+            onClicked: removeConfirmation.open()
+        }
+    }
+
+    Dialog {
+        id: removeConfirmation
+
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        width: 380
+        modal: true
+        title: "Remove book"
+
+        contentItem: Label {
+            text: "Remove \"" + (root.selection ? root.selection.selectedBookTitle : "")
+                + "\" from your collection?"
+            wrapMode: Text.WordWrap
+        }
+
+        footer: RowLayout {
+            Button {
+                text: "Cancel"
+                onClicked: removeConfirmation.reject()
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            Button {
+                text: "Remove"
+                onClicked: {
+                    removeConfirmation.accept()
+                    if (root.selection) {
+                        root.selection.removeSelectedBook()
+                    }
+                }
+            }
         }
     }
 }
