@@ -34,22 +34,54 @@ BookshelfWidget::BookshelfWidget(QWidget *parent) : QWidget(parent)
     mainLayout->addWidget(scrollArea, 1); // Expand to fill parent bounds layout footprints
 }
 
+void BookshelfWidget::updateBookCardCover(QWidget *card, const BookInfo &info)
+{
+    QLabel *coverLabel = card->findChild<QLabel*>("coverLabel");
+    if (!coverLabel) {
+        return;
+    }
+
+    QPixmap coverPixmap;
+    if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
+        coverLabel->setPixmap(coverPixmap.scaled(coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    } else {
+        coverLabel->setPixmap(generatePlaceholderCover(info.title));
+    }
+}
+
+QWidget *BookshelfWidget::createBookCard(const BookInfo &info)
+{
+    QWidget *bookCard = new QWidget(m_scrollContainer);
+    bookCard->setFixedSize(120, 142);
+    bookCard->setStyleSheet("QWidget { background: #242424; border: 1px solid #3a3a3a; border-radius: 6px; }"
+                            "QWidget:hover { border: 1px solid #3498db; background: #2d2d2d; }");
+    bookCard->setObjectName("card_" + info.isbn);
+    bookCard->setCursor(Qt::PointingHandCursor);
+    bookCard->setProperty("bookData", QVariant::fromValue(info));
+    bookCard->installEventFilter(this);
+
+    QVBoxLayout *cardLayout = new QVBoxLayout(bookCard);
+    cardLayout->setContentsMargins(5, 5, 5, 5);
+    cardLayout->setSpacing(0);
+
+    QLabel *coverLabel = new QLabel(bookCard);
+    coverLabel->setObjectName("coverLabel");
+    coverLabel->setFixedSize(110, 132);
+    coverLabel->setAlignment(Qt::AlignCenter);
+    coverLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    cardLayout->addWidget(coverLabel);
+
+    updateBookCardCover(bookCard, info);
+    return bookCard;
+}
+
 void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
 {
     QWidget *existingCard = m_scrollContainer->findChild<QWidget*>("card_" + info.isbn);
 
     if (existingCard) {
         existingCard->setProperty("bookData", QVariant::fromValue(info));
-
-        QLabel *coverLabel = existingCard->findChild<QLabel*>("coverLabel");
-        if (coverLabel) {
-            QPixmap coverPixmap;
-            if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
-                coverLabel->setPixmap(coverPixmap.scaled(coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-            } else {
-                coverLabel->setPixmap(generatePlaceholderCover(info.title));
-            }
-        }
+        updateBookCardCover(existingCard, info);
 
         if (prepend) {
             m_bookCards.removeOne(existingCard);
@@ -59,40 +91,7 @@ void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
         return;
     }
 
-    // Build standard card elements
-    QWidget *bookCard = new QWidget(m_scrollContainer);
-    // CHANGED: Shrunk vertical height from 190 to 142 since text layers are removed
-    bookCard->setFixedSize(120, 142);
-    // Charcoal cards with a vibrant neon neon accent border glow state highlight link
-    bookCard->setStyleSheet("QWidget { background: #242424; border: 1px solid #3a3a3a; border-radius: 6px; }"
-                            "QWidget:hover { border: 1px solid #3498db; background: #2d2d2d; }");
-    bookCard->setObjectName("card_" + info.isbn);
-    bookCard->setCursor(Qt::PointingHandCursor);
-
-    bookCard->setProperty("bookData", QVariant::fromValue(info));
-    bookCard->installEventFilter(this);
-
-    QVBoxLayout *cardLayout = new QVBoxLayout(bookCard);
-    // CHANGED: Set padding down to 5px for a tighter, cleaner framing edge
-    cardLayout->setContentsMargins(5, 5, 5, 5);
-    cardLayout->setSpacing(0);
-
-    QLabel *coverLabel = new QLabel(bookCard);
-    coverLabel->setObjectName("coverLabel");
-    // CHANGED: Expanded fixed frame layout up from 130 to 132 to fill card interior boundaries nicely
-    coverLabel->setFixedSize(110, 132);
-    coverLabel->setAlignment(Qt::AlignCenter);
-    coverLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-
-    QPixmap coverPixmap;
-    if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
-        coverLabel->setPixmap(coverPixmap.scaled(coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    } else {
-        coverLabel->setPixmap(generatePlaceholderCover(info.title));
-    }
-    cardLayout->addWidget(coverLabel);
-
-    // REMOVED: Title and Author QLabels are deleted from this section entirely!
+    QWidget *bookCard = createBookCard(info);
 
     if (prepend) {
         m_bookCards.prepend(bookCard);

@@ -26,6 +26,9 @@ public:
     QStringList getPendingDeletes();
     void removePendingAction(const QString &isbn);
 
+private:
+    void queueSyncAction(const QString &isbn, const QString &actionType);
+
 public slots:
     // Slot designed to directly consume the BookInfo packet emitted by the provider
     void saveBookRecord(const BookInfo &info);

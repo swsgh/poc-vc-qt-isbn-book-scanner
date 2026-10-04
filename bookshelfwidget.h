@@ -33,6 +33,8 @@ protected:
 
 private:
     void rearrangeGrid();
+    QWidget *createBookCard(const BookInfo &info);
+    void updateBookCardCover(QWidget *card, const BookInfo &info);
     QPixmap generatePlaceholderCover(const QString &title);
 
     QWidget* m_scrollContainer;

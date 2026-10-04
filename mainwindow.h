@@ -28,6 +28,7 @@ private slots:
     void onSearchTextChanged(const QString &text);
 
 private:
+    void initializeApplication();
     void setupUi();
     void setupDatabase();
     void setupConnections();

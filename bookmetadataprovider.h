@@ -30,13 +30,13 @@ private slots:
     void handlePrimaryFailure([[maybe_unused]] const QString &errorMsg);
     void handleFallbackSuccess(const BookInfo &info, const QString &urlSmall, const QString &urlMedium);
     void handleFallbackFailure([[maybe_unused]] const QString &errorMsg);
-    void handleMediumCoverFinished(QNetworkReply* reply);
-    void handleSmallCoverFinished(QNetworkReply* reply);
     void resetScannerCooldown();
 
 private:
+    void downloadCoverImage(const QString &url, const QString &statusText, bool isMedium);
     void downloadMediumCover(const QString &urlMedium);
     void downloadSmallCover(const QString &urlSmall);
+    void handleCoverDownloadFinished(QNetworkReply* reply, bool isMedium);
 
     AbstractBookProvider* m_openLibrary;
     AbstractBookProvider* m_googleBooks;

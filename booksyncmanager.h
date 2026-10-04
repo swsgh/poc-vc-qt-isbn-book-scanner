@@ -40,6 +40,7 @@ private:
     QNetworkAccessManager *m_networkManager;
 
     // Private helpers to build injection-safe header requirements
+    QNetworkRequest createJsonRequest(const QString &endpointPath) const;
     QNetworkRequest createAuthenticatedRequest(const QString &endpointPath);
     void handleSyncResponse(const QByteArray &jsonResponse);
 };

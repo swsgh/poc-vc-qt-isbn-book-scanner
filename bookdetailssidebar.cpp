@@ -98,18 +98,29 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     });
 }
 
+void BookDetailsSidebar::setCoverForBook(const BookInfo &info)
+{
+    QPixmap coverPixmap;
+    if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
+        m_coverLabel->setPixmap(coverPixmap.scaled(m_coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        return;
+    }
+
+    m_coverLabel->setPixmap(makePlaceholderCover(info.title, 140, 180));
+}
+
+void BookDetailsSidebar::clearDetailsText()
+{
+    m_detailTitleLabel->setText("Select a book from your shelf...");
+    m_detailAuthorLabel->clear();
+    m_detailIsbnLabel->clear();
+}
+
 void BookDetailsSidebar::updateDetails(const BookInfo &info)
 {
     setVisible(true);
     m_currentIsbn = info.isbn;
-
-    // --- Parse Cover Image Bytes ---
-    QPixmap coverPixmap;
-    if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
-        m_coverLabel->setPixmap(coverPixmap.scaled(m_coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    } else {
-        m_coverLabel->setPixmap(makePlaceholderCover(info.title, 140, 180));
-    }
+    setCoverForBook(info);
 
     m_detailTitleLabel->setText(QString("<b>Title:</b><br>%1").arg(info.title));
     m_detailAuthorLabel->setText(QString("<b>Author(s):</b><br>%1").arg(info.authors.isEmpty() ? "Unknown" : info.authors));
@@ -120,8 +131,6 @@ void BookDetailsSidebar::closeSidebar()
 {
     setVisible(false);
     m_currentIsbn.clear();
-    m_coverLabel->clear(); // Drop old pixel memory buffers cleanly
-    m_detailTitleLabel->setText("Select a book from your shelf...");
-    m_detailAuthorLabel->clear();
-    m_detailIsbnLabel->clear();
+    m_coverLabel->clear();
+    clearDetailsText();
 }

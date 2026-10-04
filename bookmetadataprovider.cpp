@@ -118,56 +118,49 @@ void BookMetadataProvider::handleFallbackFailure(const QString &errorMsg)
     emit lookupStatusChanged(errorMsg, true);
 }
 
-void BookMetadataProvider::downloadMediumCover(const QString &urlMedium)
+void BookMetadataProvider::downloadCoverImage(const QString &url, const QString &statusText, bool isMedium)
 {
-    emit lookupStatusChanged("Attempting to download medium cover file...", false);
+    emit lookupStatusChanged(statusText, false);
 
-    QNetworkRequest req((QUrl(urlMedium)));
+    QNetworkRequest req((QUrl(url)));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     req.setHeader(QNetworkRequest::UserAgentHeader, "Qt6ISBNBookScanner/1.0");
 
     QNetworkReply* reply = m_imageNetworkManager->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() { handleMediumCoverFinished(reply); });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, isMedium]() {
+        handleCoverDownloadFinished(reply, isMedium);
+    });
 }
 
-void BookMetadataProvider::handleMediumCoverFinished(QNetworkReply* reply)
+void BookMetadataProvider::handleCoverDownloadFinished(QNetworkReply* reply, bool isMedium)
 {
     reply->deleteLater();
     QByteArray data = reply->readAll();
 
-    // Open Library serves a tiny blank 1x1 tracking pixel (~43 bytes) if no medium cover matches.
-    // Check if the download succeeded and contains true image asset size parameters.
     if (reply->error() == QNetworkReply::NoError && data.size() > 100) {
         m_pendingInfo.coverData = data;
-        emit bookDataReady(m_pendingInfo);
-    } else {
-        // Medium failed or is a blank pixel, cascade to small cover fallback execution
-        if (!m_fallbackUrlSmall.isEmpty()) {
-            downloadSmallCover(m_fallbackUrlSmall);
-        } else {
+        if (isMedium) {
             emit bookDataReady(m_pendingInfo);
+            return;
         }
+        emit bookDataReady(m_pendingInfo);
+        return;
     }
+
+    if (isMedium && !m_fallbackUrlSmall.isEmpty()) {
+        downloadCoverImage(m_fallbackUrlSmall, "Medium cover missing. Falling back to small cover layout...", false);
+        return;
+    }
+
+    emit bookDataReady(m_pendingInfo);
+}
+
+void BookMetadataProvider::downloadMediumCover(const QString &urlMedium)
+{
+    downloadCoverImage(urlMedium, "Attempting to download medium cover file...", true);
 }
 
 void BookMetadataProvider::downloadSmallCover(const QString &urlSmall)
 {
-    emit lookupStatusChanged("Medium cover missing. Falling back to small cover layout...", false);
-
-    QNetworkRequest req((QUrl(urlSmall)));
-    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-
-    QNetworkReply* reply = m_imageNetworkManager->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() { handleSmallCoverFinished(reply); });
-}
-
-void BookMetadataProvider::handleSmallCoverFinished(QNetworkReply* reply)
-{
-    reply->deleteLater();
-    QByteArray data = reply->readAll();
-
-    if (reply->error() == QNetworkReply::NoError && data.size() > 100) {
-        m_pendingInfo.coverData = data;
-    }
-    emit bookDataReady(m_pendingInfo);
+    downloadCoverImage(urlSmall, "Medium cover missing. Falling back to small cover layout...", false);
 }

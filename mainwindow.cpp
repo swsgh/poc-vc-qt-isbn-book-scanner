@@ -18,12 +18,20 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
+    initializeApplication();
+}
+
+void MainWindow::initializeApplication()
+{
     setupUi();
     setupDatabase();
     populateBookshelf();
-    setupConnections();
+
     m_syncManager = new BookSyncManager("http://127.0.0.1:8000", this);
+    setupConnections();
     setupSync();
+
+    m_scannerView->startCapture();
     m_syncManager->loginAccount("stefan", "secret");
 }
 
@@ -40,7 +48,7 @@ void MainWindow::setupUi()
     m_scannerView->setMaximumSize(400, 220);
     mainVerticalLayout->addWidget(m_scannerView, 0, Qt::AlignHCenter);
 
-    m_isbnLabel = new QLabel("Align ISBN barcode with the red laser line...", this);
+    m_isbnLabel = new QLabel(this);
     m_isbnLabel->setAlignment(Qt::AlignCenter);
     applyStatusStyle("Align ISBN barcode with the red laser line...",
                      "#e0e0e0",
@@ -126,8 +134,6 @@ void MainWindow::setupConnections()
     connect(m_bookshelfWidget, &BookshelfWidget::bookSelected, m_detailsSidebar, &BookDetailsSidebar::updateDetails);
     connect(m_detailsSidebar, &BookDetailsSidebar::deleteBookRequested, this, &MainWindow::removeBookRecord);
     connect(m_searchBar, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
-
-    m_scannerView->startCapture();
 }
 
 void MainWindow::setupSync()

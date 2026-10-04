@@ -139,34 +139,30 @@ bool BookDatabaseManager::deleteBookRecord(const QString &isbn)
     return query.numRowsAffected() > 0;
 }
 
-void BookDatabaseManager::addPendingUpload(const QString &isbn)
+void BookDatabaseManager::queueSyncAction(const QString &isbn, const QString &actionType)
 {
     if (isbn.isEmpty()) {
         return;
     }
 
     QSqlQuery query;
-    query.prepare("INSERT OR REPLACE INTO sync_queue (isbn, action_type) VALUES (?, 'UPLOAD')");
+    query.prepare("INSERT OR REPLACE INTO sync_queue (isbn, action_type) VALUES (?, ?)");
     query.addBindValue(isbn);
+    query.addBindValue(actionType);
 
     if (!query.exec()) {
-        emit databaseError("Failed to queue upload: " + query.lastError().text());
+        emit databaseError("Failed to queue " + actionType.toLower() + ": " + query.lastError().text());
     }
+}
+
+void BookDatabaseManager::addPendingUpload(const QString &isbn)
+{
+    queueSyncAction(isbn, "UPLOAD");
 }
 
 void BookDatabaseManager::addPendingDelete(const QString &isbn)
 {
-    if (isbn.isEmpty()) {
-        return;
-    }
-
-    QSqlQuery query;
-    query.prepare("INSERT OR REPLACE INTO sync_queue (isbn, action_type) VALUES (?, 'DELETE')");
-    query.addBindValue(isbn);
-
-    if (!query.exec()) {
-        emit databaseError("Failed to queue delete: " + query.lastError().text());
-    }
+    queueSyncAction(isbn, "DELETE");
 }
 
 QStringList BookDatabaseManager::getPendingUploads()

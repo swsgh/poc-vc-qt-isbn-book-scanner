@@ -7,16 +7,31 @@
 #include <QDateTime>
 #include <QDebug>
 
+namespace {
+QNetworkReply *postJsonRequest(QNetworkAccessManager *networkManager,
+                               const QNetworkRequest &request,
+                               const QJsonObject &payload)
+{
+    return networkManager->post(request, QJsonDocument(payload).toJson());
+}
+}
+
 BookSyncManager::BookSyncManager(const QString &serverUrl, QObject *parent)
     : QObject(parent), m_serverUrl(serverUrl), m_lastSyncTimestamp(0)
 {
     m_networkManager = new QNetworkAccessManager(this);
 }
 
-QNetworkRequest BookSyncManager::createAuthenticatedRequest(const QString &endpointPath)
+QNetworkRequest BookSyncManager::createJsonRequest(const QString &endpointPath) const
 {
     QNetworkRequest request(QUrl(m_serverUrl + endpointPath));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    return request;
+}
+
+QNetworkRequest BookSyncManager::createAuthenticatedRequest(const QString &endpointPath)
+{
+    QNetworkRequest request = createJsonRequest(endpointPath);
     if (!m_token.isEmpty()) {
         request.setRawHeader("Authorization", "Bearer " + m_token.toUtf8());
     }
@@ -33,17 +48,16 @@ void BookSyncManager::registerAccount(const QString &username, const QString &pa
     json["username"] = username;
     json["password"] = password;
 
-    QNetworkRequest request(QUrl(m_serverUrl + "/api/auth/register"));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QNetworkRequest request = createJsonRequest("/api/auth/register");
 
-    QNetworkReply *reply = m_networkManager->post(request, QJsonDocument(json).toJson());
+    QNetworkReply *reply = postJsonRequest(m_networkManager, request, json);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         if (reply->error() == QNetworkReply::NoError) {
             emit authStatusMessage("Account registered successfully! You can now log in.", false);
         } else {
-            QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-            QString detail = doc.object().value("detail").toString("Registration failed.");
+            const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+            const QString detail = doc.object().value("detail").toString("Registration failed.");
             emit authStatusMessage(detail, true);
         }
     });
@@ -55,10 +69,9 @@ void BookSyncManager::loginAccount(const QString &username, const QString &passw
     json["username"] = username;
     json["password"] = password;
 
-    QNetworkRequest request(QUrl(m_serverUrl + "/api/auth/login"));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QNetworkRequest request = createJsonRequest("/api/auth/login");
 
-    auto *reply = m_networkManager->post(request, QJsonDocument(json).toJson());
+    QNetworkReply *reply = postJsonRequest(m_networkManager, request, json);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
 
