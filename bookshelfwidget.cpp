@@ -5,35 +5,64 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QPainter>
+#include <QPalette>
 #include <QMouseEvent> // NEW: Required to capture mouse click events
 
 BookshelfWidget::BookshelfWidget(QWidget *parent) : QWidget(parent)
 {
+    const QPalette systemPalette = palette();
+    const QString textColor = systemPalette.color(QPalette::WindowText).name();
+    const QString baseColor = systemPalette.color(QPalette::Base).name();
+    const QString borderColor = systemPalette.color(QPalette::Mid).name();
+
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(5, 5, 5, 5);
 
-    QLabel *titleLabel = new QLabel("Saved Books Shelf Grid", this);
-    titleLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff; padding: 2px;");
-    mainLayout->addWidget(titleLabel);
+    m_titleLabel = new QLabel("Saved Books Shelf Grid", this);
+    m_titleLabel->setStyleSheet(
+        QString("font-size: 14px; font-weight: bold; color: %1; padding: 2px;")
+            .arg(textColor));
+    mainLayout->addWidget(m_titleLabel);
 
     // --- UPDATED CONFIGURATION: VERTICAL SCROLL AREA ---
-    QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); // Disable side-scrolling
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);     // Scroll vertically
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setStyleSheet("QScrollArea { border: 1px solid #2c2c2c; background-color: #1a1a1a; border-radius: 6px; }");
+    m_scrollArea = new QScrollArea(this);
+    m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); // Disable side-scrolling
+    m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);     // Scroll vertically
+    m_scrollArea->setWidgetResizable(true);
 
-    m_scrollContainer = new QWidget(scrollArea);
+    m_scrollContainer = new QWidget(m_scrollArea);
     m_shelfGridLayout = new QGridLayout(m_scrollContainer);
     m_shelfGridLayout->setContentsMargins(15, 15, 15, 15);
     m_shelfGridLayout->setSpacing(20); // Balanced space between grid columns and rows
     m_shelfGridLayout->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
     m_scrollContainer->setLayout(m_shelfGridLayout);
-    scrollArea->setWidget(m_scrollContainer);
-    mainLayout->addWidget(scrollArea, 1); // Expand to fill parent bounds layout footprints
+    m_scrollArea->setWidget(m_scrollContainer);
+    mainLayout->addWidget(m_scrollArea, 1); // Expand to fill parent bounds layout footprints
 }
 
+void BookshelfWidget::applyPalette(const QPalette &palette)
+{
+    const QString textColor = palette.color(QPalette::WindowText).name();
+    const QString baseColor = palette.color(QPalette::Base).name();
+    const QString borderColor = palette.color(QPalette::Mid).name();
+
+    setPalette(palette);
+    m_titleLabel->setStyleSheet(
+        QString("font-size: 14px; font-weight: bold; color: %1; padding: 2px;")
+            .arg(textColor));
+    m_scrollArea->setStyleSheet(
+        QString("QScrollArea { border: 1px solid %1; background-color: %2; border-radius: 6px; }")
+            .arg(borderColor, baseColor));
+    m_scrollContainer->setPalette(palette);
+
+    for (QWidget *card : m_bookCards) {
+        const QVariant bookData = card->property("bookData");
+        if (bookData.isValid() && bookData.canConvert<BookInfo>()) {
+            updateBookCardCover(card, bookData.value<BookInfo>());
+        }
+    }
+}
 void BookshelfWidget::updateBookCardCover(QWidget *card, const BookInfo &info)
 {
     QLabel *coverLabel = card->findChild<QLabel*>("coverLabel");
@@ -157,11 +186,12 @@ void BookshelfWidget::resizeEvent(QResizeEvent *event)
 QPixmap BookshelfWidget::generatePlaceholderCover(const QString &title)
 {
     QPixmap pixmap(108, 130);
-    pixmap.fill(QColor("#34495e"));
+    const QPalette systemPalette = palette();
+    pixmap.fill(systemPalette.color(QPalette::AlternateBase));
 
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(Qt::white);
+    painter.setPen(systemPalette.color(QPalette::Mid));
 
     painter.drawRect(5, 5, 98, 120);
 
@@ -169,6 +199,7 @@ QPixmap BookshelfWidget::generatePlaceholderCover(const QString &title)
     font.setPointSize(9);
     font.setBold(true);
     painter.setFont(font);
+    painter.setPen(systemPalette.color(QPalette::WindowText));
 
     QRect textRect(10, 15, 88, 100);
     painter.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap,

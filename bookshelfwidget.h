@@ -9,6 +9,7 @@ class QGridLayout;
 class QVBoxLayout;
 class QScrollArea;
 class QLabel;
+class QPalette;
 
 class BookshelfWidget : public QWidget
 {
@@ -22,6 +23,7 @@ public:
     void removeBookFromShelf(const QString &isbn);
     void clearShelf();
     void filterBooks(const QString &searchText);
+    void applyPalette(const QPalette &palette);
 
 signals:
     // NEW: Emitted whenever an individual book card is interactively clicked
@@ -40,6 +42,8 @@ private:
     QWidget* m_scrollContainer;
     QGridLayout* m_shelfGridLayout;
     QList<QWidget*> m_bookCards;
+    QScrollArea* m_scrollArea;
+    QLabel* m_titleLabel;
 };
 
 #endif // BOOKSHELFWIDGET_H

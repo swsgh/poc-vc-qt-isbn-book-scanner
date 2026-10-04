@@ -7,6 +7,7 @@
 #include <QMediaCaptureSession>
 #include <QVideoSink>
 #include <QMediaDevices>
+#include <QPalette>
 
 // Platform-specific conditional headers
 #if defined(Q_OS_ANDROID)
@@ -21,6 +22,7 @@ BarcodeScannerView::BarcodeScannerView(QWidget *parent)
     : QOpenGLWidget(parent)
     , m_isProcessingFrame(false)
 {
+    setAttribute(Qt::WA_OpaquePaintEvent);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setMinimumSize(320, 240);
 
@@ -42,6 +44,11 @@ BarcodeScannerView::BarcodeScannerView(QWidget *parent)
     m_captureSession->setCamera(m_camera.get());
     m_captureSession->setVideoOutput(m_videoSink.get());
 
+        connect(m_camera.get(), &QCamera::errorOccurred, this,
+            [this](QCamera::Error, const QString &) {
+            emit cameraUnavailable(
+                "No camera detected. Use the manual ISBN field instead.");
+            });
     connect(m_videoSink.get(), &QVideoSink::videoFrameChanged,
             this, &BarcodeScannerView::processVideoFrame);
 }
@@ -90,7 +97,7 @@ void BarcodeScannerView::processVideoFrame(const QVideoFrame &frame)
     // 1. Android GPU texture optimization block
     if (cloneFrame.handleType() != QVideoFrame::NoHandle) {
         image = QImage(cloneFrame.size(), QImage::Format_RGB888);
-        image.fill(Qt::black);
+        image.fill(palette().color(QPalette::Window));
 
         QPainter painter(&image);
         QVideoFrame::PaintOptions options;
@@ -155,7 +162,9 @@ void BarcodeScannerView::paintEvent(QPaintEvent *event)
         int frameY = (height() - scaledFrame.height()) / 2;
         painter.drawImage(frameX, frameY, scaledFrame);
     } else {
-        painter.fillRect(rect(), Qt::black);
+        painter.fillRect(rect(), palette().color(QPalette::Window));
+        painter.setPen(palette().color(QPalette::WindowText));
+        painter.drawText(rect(), Qt::AlignCenter, "Waiting for camera frame...");
     }
 
     int boxWidth = width() * 0.7;

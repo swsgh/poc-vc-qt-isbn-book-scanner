@@ -23,6 +23,7 @@ public:
 
 signals:
     void isbnScanned(const QString &isbn);
+    void cameraUnavailable(const QString &message);
 
 protected:
     void paintEvent(QPaintEvent *event) override;

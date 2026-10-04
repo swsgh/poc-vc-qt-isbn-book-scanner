@@ -18,20 +18,39 @@
 #include <QInputDialog>
 #include <QMenu>
 #include <QAction>
+#include <QApplication>
+#include <QEvent>
+#include <QPalette>
+#include <QFrame>
 #include <QPushButton>
 #include <QToolButton>
 #include <QStatusBar>
+#include <QSizePolicy>
 #include <algorithm>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
+    setPalette(QApplication::palette());
+    setAutoFillBackground(true);
+    setAttribute(Qt::WA_StyledBackground, true);
     initializeApplication();
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    const bool paletteChanged = event->type() == QEvent::ApplicationPaletteChange
+        || event->type() == QEvent::PaletteChange;
+    if (paletteChanged && centralWidget() && !m_applyingPalette) {
+        applyPaletteStyles(QApplication::palette());
+    }
 }
 
 void MainWindow::initializeApplication()
 {
     setupUi();
+    applyPaletteStyles(QApplication::palette());
     setupDatabase();
     populateBookshelf();
 
@@ -44,7 +63,7 @@ void MainWindow::initializeApplication()
 void MainWindow::setupUi()
 {
     auto *centralWidget = new QWidget(this);
-    centralWidget->setStyleSheet("background-color: #121212;");
+    centralWidget->setAutoFillBackground(true);
 
     auto *mainVerticalLayout = new QVBoxLayout(centralWidget);
     mainVerticalLayout->setContentsMargins(12, 12, 12, 12);
@@ -57,32 +76,23 @@ void MainWindow::setupUi()
     m_cameraToggleButton->setAccessibleName("Camera preview toggle");
     m_cameraToggleButton->setMinimumWidth(140);
     m_cameraToggleButton->setFixedHeight(36);
-    m_cameraToggleButton->setStyleSheet(
-        "QPushButton { background-color: #1e1e1e; border: 1px solid #3a3a3a; "
-        "border-radius: 4px; font-size: 14px; padding: 0px 10px; }"
-        "QPushButton:hover { border-color: #3498db; }");
     connect(m_cameraToggleButton, &QPushButton::clicked,
             this, &MainWindow::toggleCameraView);
     controlsLayout->addWidget(m_cameraToggleButton);
     controlsLayout->addStretch();
 
     m_settingsButton = new QToolButton(centralWidget);
+    m_settingsButton->setObjectName("settingsButton");
     m_settingsButton->setText(QString::fromUtf8("⚙"));
-    m_settingsButton->setToolTip("Account and synchronization options");
-    m_settingsButton->setFixedSize(40, 36);
     m_settingsButton->setPopupMode(QToolButton::InstantPopup);
-    m_settingsButton->setStyleSheet(
-        "QToolButton { background-color: #1e1e1e; border: 1px solid #3a3a3a; "
-        "border-radius: 4px; font-size: 20px; }"
-        "QToolButton::menu-indicator { image: none; width: 0px; }"
-        "QToolButton:hover { border-color: #3498db; }");
     controlsLayout->addWidget(m_settingsButton);
     mainVerticalLayout->addLayout(controlsLayout);
 
     m_scannerPanel = new QWidget(centralWidget);
+    m_scannerPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
     auto *scannerLayout = new QVBoxLayout(m_scannerPanel);
     scannerLayout->setContentsMargins(0, 0, 0, 0);
-    scannerLayout->setSpacing(8);
+    scannerLayout->setSpacing(6);
 
     m_scannerView = new BarcodeScannerView(m_scannerPanel);
     m_scannerView->setMaximumWidth(932);
@@ -91,19 +101,12 @@ void MainWindow::setupUi()
 
     auto *manualLookupLayout = new QHBoxLayout;
     m_manualIsbnInput = new QLineEdit(m_scannerPanel);
+    m_manualIsbnInput->setObjectName("manualIsbnInput");
     m_manualIsbnInput->setPlaceholderText("Type an ISBN code manually (e.g. 9781449392178)...");
     m_manualIsbnInput->setMaxLength(17);
-    m_manualIsbnInput->setStyleSheet(
-        "QLineEdit { background-color: #121212; border: 1px solid #121212; "
-        "border-radius: 6px; padding: 10px; color: #ffffff; font-size: 14px; }"
-        "QLineEdit:focus { border: 1px solid #3498db; }");
     m_manualLookupButton = new QPushButton("🔍 Lookup", m_scannerPanel);
+    m_manualLookupButton->setObjectName("manualLookupButton");
     m_manualLookupButton->setMinimumSize(110, 40);
-    m_manualLookupButton->setStyleSheet(
-        "QPushButton { background-color: #121212; color: #ffffff; "
-        "border: 1px solid #3498db; border-radius: 6px; padding: 10px; "
-        "font-weight: bold; }"
-        "QPushButton:hover { background-color: #3498db; color: #ffffff; }");
     connect(m_manualIsbnInput, &QLineEdit::returnPressed,
             this, &MainWindow::submitManualIsbn);
     connect(m_manualLookupButton, &QPushButton::clicked,
@@ -114,6 +117,8 @@ void MainWindow::setupUi()
 
     m_statusLabel = new QLabel(m_scannerPanel);
     m_statusLabel->setAlignment(Qt::AlignCenter);
+    m_statusLabel->setFrameShape(QFrame::NoFrame);
+    m_statusLabel->setAutoFillBackground(false);
     applyStatusStyle("Center an ISBN barcode to log a book");
     scannerLayout->addWidget(m_statusLabel, 0);
 
@@ -133,21 +138,9 @@ void MainWindow::setupUi()
     bookshelfAreaLayout->addWidget(m_bookshelfWidget, 1);
 
     m_searchBar = new QLineEdit(this);
+    m_searchBar->setObjectName("bookSearchBar");
     m_searchBar->setPlaceholderText("🔎 Type to filter bookshelf by title or author name...");
     m_searchBar->setClearButtonEnabled(true);
-    m_searchBar->setStyleSheet(
-        "QLineEdit {"
-        "  background-color: #1e1e1e;"
-        "  border: 1px solid #3a3a3a;"
-        "  border-radius: 4px;"
-        "  padding: 8px 12px;"
-        "  font-size: 13px;"
-        "  color: #ffffff;"
-        "}"
-        "QLineEdit:focus {"
-        "  border: 1px solid #3498db;"
-        "}"
-        );
     bookshelfAreaLayout->addWidget(m_searchBar, 0);
 
     bottomRowLayout->addWidget(bookshelfAreaContainer, 3);
@@ -179,6 +172,63 @@ void MainWindow::setupUi()
     connect(m_logoutAction, &QAction::triggered, this, &MainWindow::logoutSync);
     connect(m_clearLibraryAction, &QAction::triggered,
             this, &MainWindow::clearLibraryDatabase);
+}
+
+void MainWindow::applyPaletteStyles(const QPalette &palette)
+{
+    if (m_applyingPalette) return;
+    m_applyingPalette = true;
+
+    const QString windowColor = palette.color(QPalette::Window).name();
+    const QString baseColor = palette.color(QPalette::Base).name();
+    const QString textColor = palette.color(QPalette::WindowText).name();
+    const QString borderColor = palette.color(QPalette::Mid).name();
+    const QString buttonColor = palette.color(QPalette::Button).name();
+    const QString buttonText = palette.color(QPalette::ButtonText).name();
+    const QString highlightColor = palette.color(QPalette::Highlight).name();
+    const QString highlightedText = palette.color(QPalette::HighlightedText).name();
+
+    setPalette(palette);
+    centralWidget()->setPalette(palette);
+    centralWidget()->setAutoFillBackground(true);
+    setStyleSheet(QString(
+        "QMainWindow { background-color: %1; }"
+        "QWidget { color: %2; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }"
+        "QFrame { border: 1px solid %3; border-radius: 8px; background-color: %4; }"
+        "QPushButton { background-color: %5; color: %6; border: 1px solid %3; "
+        "border-radius: 6px; padding: 10px; font-weight: bold; }"
+        "QPushButton:hover { background-color: %7; color: %8; }"
+        "QMenu { background-color: %4; border: 1px solid %3; border-radius: 6px; padding: 5px; }"
+        "QMenu::item { padding: 6px 25px 6px 20px; color: %2; }"
+        "QMenu::item:selected { background-color: %7; color: %8; border-radius: 4px; }"
+        "QLineEdit { background-color: %4; border: 1px solid %3; border-radius: 6px; "
+        "padding: 10px; color: %2; font-size: 14px; }"
+        "QLineEdit:focus { border: 1px solid %7; }"
+        "QListWidget { background-color: %4; border: 1px solid %3; border-radius: 8px; }")
+        .arg(windowColor, textColor, borderColor, baseColor,
+             buttonColor, buttonText, highlightColor, highlightedText));
+
+    m_cameraToggleButton->setStyleSheet(QString(
+        "QPushButton { background-color: %1; color: %2; border: 1px solid %3; "
+        "border-radius: 4px; font-size: 14px; padding: 0px 10px; }"
+        "QPushButton:hover { background-color: %4; color: %5; }")
+        .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
+    m_settingsButton->setStyleSheet(QString(
+        "QToolButton { background-color: %1; color: %2; border: 1px solid %3; "
+        "border-radius: 4px; font-size: 20px; }"
+        "QToolButton::menu-indicator { image: none; width: 0px; }"
+        "QToolButton:hover { background-color: %4; color: %5; }")
+        .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
+    m_manualLookupButton->setStyleSheet(QString(
+        "QPushButton { background-color: %1; color: %2; border: 1px solid %3; "
+        "border-radius: 6px; padding: 10px; font-weight: bold; }"
+        "QPushButton:hover { background-color: %4; color: %5; }")
+        .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
+
+    m_bookshelfWidget->applyPalette(palette);
+    m_detailsSidebar->applyPalette(palette);
+    applyStatusStyle(m_statusLabel->text(), m_statusTextColor);
+    m_applyingPalette = false;
 }
 
 void MainWindow::toggleCameraView()
@@ -258,7 +308,15 @@ void MainWindow::setupDatabase()
 
 void MainWindow::setupConnections()
 {
-    connect(m_scannerView, &BarcodeScannerView::isbnScanned, m_metadataProvider, &BookMetadataProvider::lookupIsbn);
+    connect(m_scannerView, &BarcodeScannerView::isbnScanned, this, [this](const QString &isbn) {
+        if (isbn == "ERROR: Camera permission denied.") {
+            applyStatusStyle("No camera detected. Use the manual ISBN field instead.", "#ffaa55");
+            return;
+        }
+        m_metadataProvider->lookupIsbn(isbn);
+    });
+    connect(m_scannerView, &BarcodeScannerView::cameraUnavailable, this,
+            [this](const QString &message) { applyStatusStyle(message, "#ffaa55"); });
     connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged, this, &MainWindow::updateStatusLabel);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &MainWindow::displayBookDetails);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
@@ -386,9 +444,12 @@ void MainWindow::populateBookshelf()
 
 void MainWindow::applyStatusStyle(const QString &text, const QString &textColor)
 {
+    m_statusTextColor = textColor;
     m_statusLabel->setText(text);
+    const QString defaultTextColor =
+        QApplication::palette().color(QPalette::WindowText).name();
     QString style = "font-weight: bold; font-size: 13px; padding: 3px; "
-                    "color: #e0e0e0; background: transparent; border: none;";
+                    "color: " + defaultTextColor + "; background: transparent; border: none;";
     if (!textColor.isEmpty()) {
         style += " color: " + textColor + ";";
     }
@@ -464,6 +525,10 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
         return;
     }
 
+    if (text.startsWith("💡 ISBN ")) {
+        applyStatusStyle(text, "#ffaa55");
+        return;
+    }
     applyStatusStyle(text);
 }
 

@@ -6,6 +6,8 @@
 
 class QLabel;
 class QPushButton; // Forward declare the button class
+class QFrame;
+class QPalette;
 
 class BookDetailsSidebar : public QWidget
 {
@@ -18,6 +20,7 @@ public:
 public slots:
     void updateDetails(const BookInfo &info);
     void closeSidebar();
+    void applyPalette(const QPalette &palette);
 
 signals:
     // NEW: Emitted when the user wants to delete the active book from the archive
@@ -32,6 +35,9 @@ private:
     QLabel* m_detailAuthorLabel;
     QLabel* m_detailIsbnLabel;
     QPushButton* m_deleteButton; // NEW: Pointer to toggle button context safely
+    QPushButton* m_closeButton = nullptr;
+    QFrame* m_container = nullptr;
+    BookInfo m_currentBook;
     QString m_currentIsbn;       // NEW: Tracks active ISBN being shown
 };
 

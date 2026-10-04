@@ -11,8 +11,10 @@ class BookshelfWidget;
 class BookDetailsSidebar;
 class BookSyncManager;
 class QAction;
+class QEvent;
 class QLabel;
 class QLineEdit;
+class QPalette;
 class QPushButton;
 class QToolButton;
 
@@ -39,6 +41,9 @@ private slots:
     void handleSyncCompleted(const QString &username, qint64 checkpoint,
                              bool initialSync, const QStringList &remoteIsbns);
 
+protected:
+    void changeEvent(QEvent *event) override;
+
 private:
     void initializeApplication();
     void setupUi();
@@ -46,6 +51,7 @@ private:
     void setupConnections();
     void setupSync();
     void populateBookshelf();
+    void applyPaletteStyles(const QPalette &palette);
     void applyStatusStyle(const QString &text, const QString &textColor = {});
     void handleBookSaved(const QString &isbn);
     void handleSyncQueueFlush();
@@ -71,6 +77,8 @@ private:
     QAction* m_syncAction = nullptr;
     QAction* m_logoutAction = nullptr;
     QAction* m_clearLibraryAction = nullptr;
+    QString m_statusTextColor;
+    bool m_applyingPalette = false;
 };
 
 #endif // MAINWINDOW_H
