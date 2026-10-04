@@ -14,6 +14,7 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QLineEdit>
+#include <QSet>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -210,12 +211,18 @@ void MainWindow::handleSyncQueueFlush()
 void MainWindow::handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
                                          const QStringList &isbnsToDelete)
 {
+    QSet<QString> tombstones;
     for (const QString &isbn : isbnsToDelete) {
+        tombstones.insert(isbn);
         m_dbManager->deleteBookRecord(isbn);
+        m_dbManager->removePendingAction(isbn);
         m_bookshelfWidget->removeBookFromShelf(isbn);
     }
 
     for (const BookInfo &book : booksToSave) {
+        if (tombstones.contains(book.isbn)) {
+            continue;
+        }
         m_dbManager->saveBookRecord(book);
         m_bookshelfWidget->addBookToShelf(book, true);
     }
