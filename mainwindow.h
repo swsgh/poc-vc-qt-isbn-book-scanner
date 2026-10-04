@@ -38,7 +38,6 @@ private slots:
     void syncNow();
     void logoutSync();
     void toggleCameraView();
-    void clearLibraryDatabase();
     void handleSyncCompleted(const QString &username, qint64 checkpoint,
                              bool initialSync, const QStringList &remoteIsbns);
 
@@ -54,6 +53,7 @@ private:
     void populateBookshelf();
     void applyPaletteStyles(const QPalette &palette);
     void applyStatusStyle(const QString &text, const QString &textColor = {});
+    void updateSyncConnectionIndicator(bool connected);
     void handleBookSaved(const QString &isbn);
     void handleSyncQueueFlush();
     void handleLoginSuccess();
@@ -68,6 +68,7 @@ private:
     BookSyncManager* m_syncManager = nullptr;
     QWidget* m_scannerPanel = nullptr;
     QLabel* m_statusLabel = nullptr;
+    QLabel* m_syncConnectionIndicator = nullptr;
     QLineEdit* m_searchBar = nullptr;
     QLineEdit* m_manualIsbnInput = nullptr;
     QPushButton* m_cameraToggleButton = nullptr;
@@ -77,7 +78,6 @@ private:
     QAction* m_loginAction = nullptr;
     QAction* m_syncAction = nullptr;
     QAction* m_logoutAction = nullptr;
-    QAction* m_clearLibraryAction = nullptr;
     QString m_statusTextColor;
     bool m_applyingPalette = false;
 };

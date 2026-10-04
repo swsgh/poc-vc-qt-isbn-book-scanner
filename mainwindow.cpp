@@ -87,6 +87,15 @@ void MainWindow::setupUi()
     controlsLayout->addWidget(m_cameraToggleButton);
     controlsLayout->addStretch();
 
+    m_syncConnectionIndicator = new QLabel(centralWidget);
+    m_syncConnectionIndicator->setObjectName("syncConnectionIndicator");
+    m_syncConnectionIndicator->setFixedSize(12, 12);
+    m_syncConnectionIndicator->setToolTip("Checking sync server connection...");
+    m_syncConnectionIndicator->setAccessibleName("Sync server connection status");
+    m_syncConnectionIndicator->setStyleSheet(
+        "QLabel { background-color: #8a929c; border-radius: 6px; }");
+    controlsLayout->addWidget(m_syncConnectionIndicator, 0, Qt::AlignVCenter);
+
     m_settingsButton = new QToolButton(centralWidget);
     m_settingsButton->setObjectName("settingsButton");
     m_settingsButton->setText(QString::fromUtf8("⚙"));
@@ -162,22 +171,19 @@ void MainWindow::setupUi()
     resize(950, 900);
 
     auto *syncMenu = new QMenu(this);
-    m_registerAction = syncMenu->addAction("Register Sync Account...");
     m_loginAction = syncMenu->addAction("Log In to Sync...");
     m_syncAction = syncMenu->addAction("Sync Now");
     m_logoutAction = syncMenu->addAction("Log Out of Sync");
     m_syncAction->setEnabled(false);
     m_logoutAction->setEnabled(false);
     syncMenu->addSeparator();
-    m_clearLibraryAction = syncMenu->addAction("🗑️ Clear Library Database");
+    m_registerAction = syncMenu->addAction("Register Sync Account...");
     m_settingsButton->setMenu(syncMenu);
 
     connect(m_registerAction, &QAction::triggered, this, &MainWindow::promptRegisterAccount);
     connect(m_loginAction, &QAction::triggered, this, &MainWindow::promptLoginAccount);
     connect(m_syncAction, &QAction::triggered, this, &MainWindow::syncNow);
     connect(m_logoutAction, &QAction::triggered, this, &MainWindow::logoutSync);
-    connect(m_clearLibraryAction, &QAction::triggered,
-            this, &MainWindow::clearLibraryDatabase);
 }
 
 void MainWindow::applyPaletteStyles(const QPalette &palette)
@@ -273,29 +279,6 @@ void MainWindow::submitManualIsbn()
     m_metadataProvider->lookupIsbn(isbn);
 }
 
-void MainWindow::clearLibraryDatabase()
-{
-    const auto confirmation = QMessageBox::question(
-        this,
-        "Clear Entire Library?",
-        "Are you completely sure you want to purge all books from the database and UI grid view?",
-        QMessageBox::Yes | QMessageBox::No,
-        QMessageBox::No);
-    if (confirmation != QMessageBox::Yes) return;
-
-    if (!m_dbManager->clearBooksAndQueueDeletes()) return;
-
-    m_bookshelfWidget->clearShelf();
-    m_detailsSidebar->closeSidebar();
-    m_searchBar->clear();
-
-    if (m_syncManager->isAuthenticated()) {
-        handleSyncQueueFlush();
-    }
-
-    applyStatusStyle("🧹 Library database completely wiped.");
-}
-
 void MainWindow::setupDatabase()
 {
     m_dbManager = new BookDatabaseManager(this);
@@ -339,6 +322,8 @@ void MainWindow::setupConnections()
 
 void MainWindow::setupSync()
 {
+    connect(m_syncManager, &BookSyncManager::serverConnectionChanged,
+            this, &MainWindow::updateSyncConnectionIndicator);
     connect(m_syncManager, &BookSyncManager::uploadSucceeded, this, [this](const QString &isbn) {
         m_dbManager->removePendingAction(isbn, "UPLOAD");
     });
@@ -356,6 +341,19 @@ void MainWindow::setupSync()
             [this](const QString &message) {
                 updateStatusLabel("Sync failed: " + message, true);
             });
+    m_syncManager->checkServerConnection();
+}
+
+void MainWindow::updateSyncConnectionIndicator(bool connected)
+{
+    const QString color = connected ? "#2f9e62" : "#d64f4f";
+    const QString description = connected
+        ? "Sync server is reachable"
+        : "Sync server is unreachable";
+    m_syncConnectionIndicator->setStyleSheet(
+        QString("QLabel { background-color: %1; border-radius: 6px; }").arg(color));
+    m_syncConnectionIndicator->setToolTip(description);
+    m_syncConnectionIndicator->setAccessibleDescription(description);
 }
 
 void MainWindow::promptRegisterAccount()

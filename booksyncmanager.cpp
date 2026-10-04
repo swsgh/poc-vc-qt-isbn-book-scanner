@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QUrl>
+#include <QTimer>
 
 namespace {
 QNetworkReply *postJsonRequest(QNetworkAccessManager *networkManager,
@@ -29,6 +30,11 @@ BookSyncManager::BookSyncManager(const QString &serverUrl, QObject *parent)
     : QObject(parent), m_serverUrl(serverUrl), m_lastSyncTimestamp(0)
 {
     m_networkManager = new QNetworkAccessManager(this);
+    auto *healthCheckTimer = new QTimer(this);
+    healthCheckTimer->setInterval(30000);
+    connect(healthCheckTimer, &QTimer::timeout,
+            this, &BookSyncManager::checkServerConnection);
+    healthCheckTimer->start();
 }
 
 void BookSyncManager::setServerUrl(const QString &serverUrl)
@@ -37,6 +43,35 @@ void BookSyncManager::setServerUrl(const QString &serverUrl)
     while (m_serverUrl.endsWith('/')) {
         m_serverUrl.chop(1);
     }
+    checkServerConnection();
+}
+
+void BookSyncManager::checkServerConnection()
+{
+    if (m_healthCheckInFlight) return;
+
+    m_healthCheckInFlight = true;
+    const QString checkedServerUrl = m_serverUrl;
+    QNetworkReply *reply = m_networkManager->get(createJsonRequest("/health"));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, checkedServerUrl]() {
+        m_healthCheckInFlight = false;
+        const QJsonDocument response = QJsonDocument::fromJson(reply->readAll());
+        const bool connected = reply->error() == QNetworkReply::NoError
+            && response.isObject()
+            && response.object().value("status").toString() == "ok";
+        reply->deleteLater();
+
+        if (checkedServerUrl != m_serverUrl) {
+            checkServerConnection();
+            return;
+        }
+
+        if (!m_hasServerConnectionResult || m_serverConnected != connected) {
+            m_hasServerConnectionResult = true;
+            m_serverConnected = connected;
+            emit serverConnectionChanged(connected);
+        }
+    });
 }
 
 QNetworkRequest BookSyncManager::createJsonRequest(const QString &endpointPath) const

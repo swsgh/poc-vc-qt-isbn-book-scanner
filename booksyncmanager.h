@@ -20,6 +20,7 @@ public:
     void setServerUrl(const QString &serverUrl);
     void logoutAccount();
     void setSyncCheckpoint(qint64 timestamp, bool hasCheckpoint);
+    void checkServerConnection();
     bool isAuthenticated() const { return !m_token.isEmpty(); }
     bool isSyncRequestInFlight() const { return m_syncRequestInFlight; }
     QString currentUsername() const { return m_username; }
@@ -32,6 +33,7 @@ public:
 signals:
     // Routing pipelines targeting UI components and local SQLite databases
     void authStatusMessage(const QString &message, bool isError);
+    void serverConnectionChanged(bool connected);
     void loginSuccess();
     void remoteBookUpdatesDownloaded(const QList<BookInfo> &booksToSave, const QStringList &isbnsToDelete);
     void networkErrorOccurred(const QString &errorMsg);
@@ -47,6 +49,9 @@ private:
     qint64 m_lastSyncTimestamp; // Maps down to SQLite Unix tracked epochs
     bool m_hasSyncCheckpoint = false;
     bool m_syncRequestInFlight = false;
+    bool m_healthCheckInFlight = false;
+    bool m_hasServerConnectionResult = false;
+    bool m_serverConnected = false;
     QNetworkAccessManager *m_networkManager;
 
     // Private helpers to build injection-safe header requirements

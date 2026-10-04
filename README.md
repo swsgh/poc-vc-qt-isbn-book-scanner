@@ -6,7 +6,7 @@ A Qt 6 desktop application that scans EAN-13 book barcodes, looks up book metada
 
 - The scanner starts hidden; **Show Camera** starts capture, and **Hide Camera** stops it and reclaims the preview area. Barcode decoding uses Qt Multimedia and the bundled ZXing-C++ library.
 - Enter a 10- or 13-digit ISBN manually in the scanner panel and select **Lookup** when scanning is unavailable.
-- The top-right cogwheel menu contains account and sync actions plus **Clear Library Database**, which removes local books and queues server deletions.
+- The top-right cogwheel menu contains account and sync actions.
 - Book metadata lookup through the Open Library and Google Books providers.
 - Local SQLite storage for book details, cover images, and a persistent sync queue.
 - Search by title, author, or ISBN; inspect details and remove books.
