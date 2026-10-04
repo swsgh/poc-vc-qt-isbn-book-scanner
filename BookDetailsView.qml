@@ -97,7 +97,17 @@ Rectangle {
 
         Text {
             width: parent.width
-            text: root.selection ? root.selection.selectedBookMetadata : ""
+            text: {
+                if (!root.selection) return ""
+                const lines = []
+                if (root.selection.selectedBookPublicationDate.length > 0)
+                    lines.push("First published: " + root.selection.selectedBookPublicationDate)
+                if (root.selection.selectedBookPublisher.length > 0)
+                    lines.push("Publisher: " + root.selection.selectedBookPublisher)
+                if (root.selection.selectedBookPageCount > 0)
+                    lines.push("Pages: " + root.selection.selectedBookPageCount)
+                return lines.join("\n")
+            }
             color: systemPalette.windowText
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap

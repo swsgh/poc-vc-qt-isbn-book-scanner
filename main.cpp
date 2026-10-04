@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "bookapplicationcontroller.h"
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     app.setOrganizationName("Bookshelf");
 
     QQmlApplicationEngine engine;
-    MainWindow applicationController(engine);
+    BookApplicationController applicationController(engine);
     if (engine.rootObjects().isEmpty()) {
         return -1;
     }

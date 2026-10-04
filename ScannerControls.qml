@@ -6,9 +6,13 @@ Column {
     id: root
 
     property var scannerController: null
-    property var scannerActions: null
+    property var appController: null
 
     spacing: 6
+
+    SystemPalette {
+        id: systemPalette
+    }
 
     ScannerPreview {
         width: Math.min(root.width, 932)
@@ -39,15 +43,17 @@ Column {
 
     Text {
         width: root.width
-        text: root.scannerActions ? root.scannerActions.scannerStatusText : ""
-        color: root.scannerActions ? root.scannerActions.scannerStatusColor : "white"
+        text: root.appController ? root.appController.scannerStatusText : ""
+        color: !root.appController || root.appController.scannerStatusSeverity === "normal"
+            ? systemPalette.windowText
+            : root.appController.scannerStatusSeverity === "warning" ? "#ffaa55" : "#ff6b6b"
         font.bold: true
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
     }
 
     function lookupIsbn() {
-        if (root.scannerActions && root.scannerActions.submitManualIsbn(isbnInput.text)) {
+        if (root.appController && root.appController.submitManualIsbn(isbnInput.text)) {
             isbnInput.clear()
         }
     }

@@ -5,7 +5,7 @@ import QtQuick.Layouts
 Dialog {
     id: root
 
-    property var mainWindow: null
+    property var appController: null
     property bool registering: false
 
     parent: Overlay.overlay
@@ -17,13 +17,13 @@ Dialog {
 
     onOpened: {
         errorText.text = ""
-        serverUrl.text = mainWindow ? mainWindow.defaultSyncServerUrl() : ""
-        username.text = registering || !mainWindow
-            ? "" : mainWindow.rememberedSyncUsername()
+        serverUrl.text = appController ? appController.defaultSyncServerUrl() : ""
+        username.text = registering || !appController
+            ? "" : appController.rememberedSyncUsername()
         password.text = ""
         confirmation.text = ""
-        rememberUsername.checked = mainWindow
-            ? mainWindow.shouldRememberSyncUsername() : false
+        rememberUsername.checked = appController
+            ? appController.shouldRememberSyncUsername() : false
     }
 
     contentItem: ColumnLayout {
@@ -83,11 +83,11 @@ Dialog {
         Button {
             text: root.registering ? "Register" : "Log In"
             onClicked: {
-                if (!root.mainWindow) {
+                if (!root.appController) {
                     errorText.text = "Account actions are unavailable."
                     return
                 }
-                const error = root.mainWindow.submitSyncCredentials(
+                const error = root.appController.submitSyncCredentials(
                     root.registering, serverUrl.text, username.text, password.text,
                     confirmation.text, rememberUsername.checked)
                 if (error.length > 0) {

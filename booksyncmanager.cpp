@@ -209,7 +209,7 @@ void BookSyncManager::uploadBookToServer(const BookInfo &info)
     connect(reply, &QNetworkReply::finished, this, [this, reply, info]() {
         reply->deleteLater();
         if (reply->error() == QNetworkReply::NoError) {
-            emit uploadSucceeded(info.isbn); // Notify MainWindow to remove from queue
+            emit uploadSucceeded(info.isbn); // Notify the coordinator to clear the queue entry.
         } else {
             qWarning() << "[Sync Engine] Upload failed, remaining in offline queue:" << reply->errorString();
             emit networkErrorOccurred(replyErrorMessage(reply, "Book upload failed."));
@@ -229,7 +229,7 @@ void BookSyncManager::deleteBookFromServer(const QString &isbn)
         reply->deleteLater();
         const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() == QNetworkReply::NoError || statusCode == 404) {
-            emit deleteSucceeded(isbn); // Notify MainWindow to remove from queue
+            emit deleteSucceeded(isbn); // Notify the coordinator to clear the queue entry.
         } else {
             qWarning() << "[Sync Engine] Deletion failed, remaining in offline queue:" << reply->errorString();
             emit networkErrorOccurred(replyErrorMessage(reply, "Book deletion failed."));

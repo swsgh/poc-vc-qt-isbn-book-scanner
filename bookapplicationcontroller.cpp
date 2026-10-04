@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "bookapplicationcontroller.h"
 #include "barcodescannercontroller.h"
 #include "bookmetadataprovider.h"
 #include "bookdatabasemanager.h"
@@ -11,8 +11,6 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
-#include <QGuiApplication>
-#include <QPalette>
 #include <QQmlApplicationEngine>
 #include <QSettings>
 #include <QTimer>
@@ -20,13 +18,13 @@
 #include <QUrl>
 #include <algorithm>
 
-MainWindow::MainWindow(QQmlApplicationEngine &engine, QObject *parent)
+BookApplicationController::BookApplicationController(QQmlApplicationEngine &engine, QObject *parent)
     : QObject(parent)
 {
     initializeApplication(engine);
 }
 
-void MainWindow::initializeApplication(QQmlApplicationEngine &engine)
+void BookApplicationController::initializeApplication(QQmlApplicationEngine &engine)
 {
     m_scannerController = new BarcodeScannerController(this);
     m_bookCollectionModel = new BookCollectionModel(this);
@@ -53,12 +51,12 @@ void MainWindow::initializeApplication(QQmlApplicationEngine &engine)
         return;
     }
     QObject *root = engine.rootObjects().constFirst();
-    root->setProperty("mainWindow", QVariant::fromValue(static_cast<QObject *>(this)));
+    root->setProperty("appController", QVariant::fromValue(static_cast<QObject *>(this)));
     root->setProperty("bookCollection", QVariant::fromValue(static_cast<QObject *>(m_bookFilterModel)));
     root->setProperty("scannerController", QVariant::fromValue(static_cast<QObject *>(m_scannerController)));
 }
 
-QVariantMap MainWindow::exportBooksCsv(const QUrl &fileUrl)
+QVariantMap BookApplicationController::exportBooksCsv(const QUrl &fileUrl)
 {
     QVariantMap result;
     const QList<BookInfo> books = m_dbManager->getAllSavedBooks();
@@ -92,7 +90,7 @@ QVariantMap MainWindow::exportBooksCsv(const QUrl &fileUrl)
     return result;
 }
 
-QVariantMap MainWindow::importBooksCsv(const QUrl &fileUrl)
+QVariantMap BookApplicationController::importBooksCsv(const QUrl &fileUrl)
 {
     QVariantMap result;
     const QString filePath = fileUrl.toLocalFile();
@@ -141,7 +139,7 @@ QVariantMap MainWindow::importBooksCsv(const QUrl &fileUrl)
     return result;
 }
 
-void MainWindow::toggleScannerPanel()
+void BookApplicationController::toggleScannerPanel()
 {
     m_scannerVisible = !m_scannerVisible;
     if (m_scannerVisible) {
@@ -152,7 +150,7 @@ void MainWindow::toggleScannerPanel()
     emit scannerVisibilityChanged();
 }
 
-bool MainWindow::submitManualIsbn(const QString &input)
+bool BookApplicationController::submitManualIsbn(const QString &input)
 {
     QString isbn = input.trimmed();
     isbn.remove(QLatin1Char('-'));
@@ -163,7 +161,7 @@ bool MainWindow::submitManualIsbn(const QString &input)
             return character >= QLatin1Char('0') && character <= QLatin1Char('9');
         });
     if (!validLength || !containsOnlyDigits) {
-        applyStatusStyle("ISBN must be a string of 10 or 13 numbers.", "#ff6b6b");
+        setScannerStatus("ISBN must be a string of 10 or 13 numbers.", "error");
         return false;
     }
 
@@ -171,7 +169,7 @@ bool MainWindow::submitManualIsbn(const QString &input)
     return true;
 }
 
-void MainWindow::setupDatabase()
+void BookApplicationController::setupDatabase()
 {
     m_dbManager = new BookDatabaseManager(this);
 
@@ -187,19 +185,19 @@ void MainWindow::setupDatabase()
     m_metadataProvider = new BookMetadataProvider(m_dbManager, this);
 }
 
-void MainWindow::setupConnections()
+void BookApplicationController::setupConnections()
 {
     connect(m_scannerController, &BarcodeScannerController::isbnScanned, this, [this](const QString &isbn) {
         if (isbn == "ERROR: Camera permission denied.") {
-            applyStatusStyle("No camera detected. Use the manual ISBN field instead.", "#ffaa55");
+            setScannerStatus("No camera detected. Use the manual ISBN field instead.", "warning");
             return;
         }
         m_metadataProvider->lookupIsbn(isbn);
     });
     connect(m_scannerController, &BarcodeScannerController::cameraUnavailable, this,
-            [this](const QString &message) { applyStatusStyle(message, "#ffaa55"); });
-    connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged, this, &MainWindow::updateStatusLabel);
-    connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &MainWindow::displayBookDetails);
+            [this](const QString &message) { setScannerStatus(message, "warning"); });
+    connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged, this, &BookApplicationController::updateStatusLabel);
+    connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &BookApplicationController::displayBookDetails);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
 
     connect(m_dbManager, &BookDatabaseManager::databaseError, this, [this](const QString &err) {
@@ -216,12 +214,12 @@ void MainWindow::setupConnections()
             });
 }
 
-void MainWindow::setupSync()
+void BookApplicationController::setupSync()
 {
     m_syncCoordinator = new BookSyncCoordinator(
         m_dbManager, m_syncManager, m_metadataProvider, this);
     connect(m_syncCoordinator, &BookSyncCoordinator::statusMessage,
-            this, &MainWindow::updateStatusLabel);
+            this, &BookApplicationController::updateStatusLabel);
         connect(m_syncCoordinator, &BookSyncCoordinator::collectionBookAdded, this,
             [this](const BookInfo &book, bool prepend) {
             m_bookCollectionModel->addBook(book, prepend);
@@ -229,12 +227,12 @@ void MainWindow::setupSync()
         connect(m_syncCoordinator, &BookSyncCoordinator::collectionBookRemoved, this,
             [this](const QString &isbn) { m_bookCollectionModel->removeBook(isbn); });
         connect(m_syncCoordinator, &BookSyncCoordinator::bookDetailsCloseRequested,
-                this, &MainWindow::clearSelectedBook);
+                this, &BookApplicationController::clearSelectedBook);
         connect(m_syncCoordinator, &BookSyncCoordinator::syncSummary, this,
             [this](const QString &message) { setApplicationStatus(message, false, 10000); });
     connect(m_syncManager, &BookSyncManager::serverConnectionChanged,
-            this, &MainWindow::updateSyncConnectionIndicator);
-    connect(m_syncManager, &BookSyncManager::loginSuccess, this, &MainWindow::handleLoginSuccess);
+            this, &BookApplicationController::updateSyncConnectionIndicator);
+    connect(m_syncManager, &BookSyncManager::loginSuccess, this, &BookApplicationController::handleLoginSuccess);
     connect(m_syncManager, &BookSyncManager::authStatusMessage,
             this, [this](const QString &message, bool isError) {
                 setApplicationStatus(message, isError, isError ? 15000 : 5000);
@@ -245,13 +243,13 @@ void MainWindow::setupSync()
             });
 }
 
-void MainWindow::updateSyncConnectionIndicator(bool connected)
+void BookApplicationController::updateSyncConnectionIndicator(bool connected)
 {
     m_syncServerReachable = connected;
     emit syncConnectionChanged();
 }
 
-QString MainWindow::submitSyncCredentials(bool registering, const QString &serverUrl,
+QString BookApplicationController::submitSyncCredentials(bool registering, const QString &serverUrl,
                                           const QString &username, const QString &password,
                                           const QString &confirmation, bool rememberUsername)
 {
@@ -292,7 +290,7 @@ QString MainWindow::submitSyncCredentials(bool registering, const QString &serve
     return {};
 }
 
-void MainWindow::syncNow()
+void BookApplicationController::syncNow()
 {
     if (!m_syncManager->isAuthenticated()) {
         setApplicationStatus("Log in before synchronizing.");
@@ -303,7 +301,7 @@ void MainWindow::syncNow()
     m_syncManager->triggerDifferentialSync();
 }
 
-void MainWindow::logoutSync()
+void BookApplicationController::logoutSync()
 {
     if (m_syncManager->isSyncRequestInFlight()) {
         setApplicationStatus("Wait for the current sync to finish before logging out.");
@@ -316,12 +314,12 @@ void MainWindow::logoutSync()
     setApplicationStatus("Signed out of sync.");
 }
 
-void MainWindow::handleLoginSuccess()
+void BookApplicationController::handleLoginSuccess()
 {
     emit syncStateChanged();
 }
 
-QString MainWindow::defaultSyncServerUrl() const
+QString BookApplicationController::defaultSyncServerUrl() const
 {
     const QString configuredUrl = qEnvironmentVariable("BOOKSHELF_SYNC_URL");
     if (!configuredUrl.isEmpty()) {
@@ -330,27 +328,27 @@ QString MainWindow::defaultSyncServerUrl() const
     return QSettings().value("sync/server_url", "http://127.0.0.1:8000").toString();
 }
 
-QString MainWindow::rememberedSyncUsername() const
+QString BookApplicationController::rememberedSyncUsername() const
 {
     return QSettings().value("sync/username").toString();
 }
 
-bool MainWindow::shouldRememberSyncUsername() const
+bool BookApplicationController::shouldRememberSyncUsername() const
 {
     return !rememberedSyncUsername().isEmpty();
 }
 
-bool MainWindow::syncAuthenticated() const
+bool BookApplicationController::syncAuthenticated() const
 {
     return m_syncManager && m_syncManager->isAuthenticated();
 }
 
-bool MainWindow::syncServerReachable() const
+bool BookApplicationController::syncServerReachable() const
 {
     return m_syncServerReachable;
 }
 
-void MainWindow::populateBookshelf()
+void BookApplicationController::populateBookshelf()
 {
     const QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
     m_bookCollectionModel->setBooks(historicalBooks);
@@ -361,63 +359,61 @@ void MainWindow::populateBookshelf()
     }
 }
 
-void MainWindow::applyStatusStyle(const QString &text, const QString &textColor)
+void BookApplicationController::setScannerStatus(const QString &text, const QString &severity)
 {
     m_scannerStatusText = text;
-    m_statusTextColor = textColor;
+    m_scannerStatusSeverity = severity;
     emit scannerStatusChanged();
 }
 
-void MainWindow::updateStatusLabel(const QString &text, bool isError)
+void BookApplicationController::updateStatusLabel(const QString &text, bool isError)
 {
     if (isError) {
         qCritical() << "[Scanner System Error Alert]:\n" << text;
-        applyStatusStyle(text, "#ff6b6b");
+        setScannerStatus(text, "error");
         return;
     }
 
     if (text.startsWith("💡 ISBN ")) {
-        applyStatusStyle(text, "#ffaa55");
+        setScannerStatus(text, "warning");
         return;
     }
-    applyStatusStyle(text);
+    setScannerStatus(text);
 }
 
-void MainWindow::displayBookDetails(const BookInfo &info)
+void BookApplicationController::displayBookDetails(const BookInfo &info)
 {
-    applyStatusStyle(QString("📖 Successfully scanned: %1").arg(info.title));
+    setScannerStatus(QString("📖 Successfully scanned: %1").arg(info.title));
     m_selectedBook = info;
     emit selectedBookChanged();
 }
 
-bool MainWindow::scannerVisible() const
+bool BookApplicationController::scannerVisible() const
 {
     return m_scannerVisible;
 }
 
-QString MainWindow::scannerStatusText() const
+QString BookApplicationController::scannerStatusText() const
 {
     return m_scannerStatusText;
 }
 
-QString MainWindow::scannerStatusColor() const
+QString BookApplicationController::scannerStatusSeverity() const
 {
-    return m_statusTextColor.isEmpty()
-        ? QGuiApplication::palette().color(QPalette::WindowText).name()
-        : m_statusTextColor;
+    return m_scannerStatusSeverity;
 }
 
-QString MainWindow::applicationStatusText() const
+QString BookApplicationController::applicationStatusText() const
 {
     return m_applicationStatusText;
 }
 
-bool MainWindow::applicationStatusIsError() const
+bool BookApplicationController::applicationStatusIsError() const
 {
     return m_applicationStatusIsError;
 }
 
-void MainWindow::setApplicationStatus(const QString &text, bool isError, int durationMs)
+void BookApplicationController::setApplicationStatus(const QString &text, bool isError, int durationMs)
 {
     m_applicationStatusText = text;
     m_applicationStatusIsError = isError;
@@ -435,12 +431,12 @@ void MainWindow::setApplicationStatus(const QString &text, bool isError, int dur
     }
 }
 
-void MainWindow::setBookSearchText(const QString &text)
+void BookApplicationController::setBookSearchText(const QString &text)
 {
     m_bookFilterModel->setFilterFixedString(text.trimmed());
 }
 
-void MainWindow::selectBook(const QString &isbn)
+void BookApplicationController::selectBook(const QString &isbn)
 {
     const BookInfo info = m_dbManager->getBookByIsbn(isbn);
     if (info.found) {
@@ -449,7 +445,7 @@ void MainWindow::selectBook(const QString &isbn)
     }
 }
 
-void MainWindow::clearSelectedBook()
+void BookApplicationController::clearSelectedBook()
 {
     if (!m_selectedBook.found) {
         return;
@@ -458,49 +454,49 @@ void MainWindow::clearSelectedBook()
     emit selectedBookChanged();
 }
 
-void MainWindow::removeSelectedBook()
+void BookApplicationController::removeSelectedBook()
 {
     if (m_selectedBook.found) {
         m_syncCoordinator->removeBook(m_selectedBook.isbn);
     }
 }
 
-bool MainWindow::selectedBookVisible() const
+bool BookApplicationController::selectedBookVisible() const
 {
     return m_selectedBook.found;
 }
 
-QString MainWindow::selectedBookTitle() const
+QString BookApplicationController::selectedBookTitle() const
 {
     return m_selectedBook.title;
 }
 
-QString MainWindow::selectedBookAuthors() const
+QString BookApplicationController::selectedBookAuthors() const
 {
     return m_selectedBook.authors;
 }
 
-QString MainWindow::selectedBookIsbn() const
+QString BookApplicationController::selectedBookIsbn() const
 {
     return m_selectedBook.isbn;
 }
 
-QString MainWindow::selectedBookMetadata() const
+QString BookApplicationController::selectedBookPublicationDate() const
 {
-    QStringList metadata;
-    if (!m_selectedBook.publicationDate.isEmpty()) {
-        metadata.append("First published: " + m_selectedBook.publicationDate);
-    }
-    if (!m_selectedBook.publisher.isEmpty()) {
-        metadata.append("Publisher: " + m_selectedBook.publisher);
-    }
-    if (m_selectedBook.pageCount > 0) {
-        metadata.append(QString("Pages: %1").arg(m_selectedBook.pageCount));
-    }
-    return metadata.join('\n');
+    return m_selectedBook.publicationDate;
 }
 
-QUrl MainWindow::selectedBookCoverSource() const
+QString BookApplicationController::selectedBookPublisher() const
+{
+    return m_selectedBook.publisher;
+}
+
+int BookApplicationController::selectedBookPageCount() const
+{
+    return m_selectedBook.pageCount;
+}
+
+QUrl BookApplicationController::selectedBookCoverSource() const
 {
     if (!m_selectedBook.found || m_selectedBook.coverUrl.isEmpty()
         || !CoverCache::contains(m_selectedBook.isbn)) {

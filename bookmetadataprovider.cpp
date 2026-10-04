@@ -133,7 +133,7 @@ void BookMetadataProvider::handleFallbackSuccess(const BookInfo &info, const QSt
 
 void BookMetadataProvider::handleFallbackFailure(const QString &errorMsg)
 {
-    // Pass to true so MainWindow shifts it to your console stream
+    // Pass to true so the application controller forwards it to the status area.
     emit lookupStatusChanged(errorMsg, true);
 }
 

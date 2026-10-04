@@ -6,7 +6,7 @@ import QtCore
 Item {
     id: root
 
-    property var mainWindow: null
+    property var appController: null
 
     ToolButton {
         id: settingsButton
@@ -23,7 +23,7 @@ Item {
 
         MenuItem {
             text: "Log In to Sync..."
-            enabled: root.mainWindow && !root.mainWindow.syncAuthenticated
+            enabled: root.appController && !root.appController.syncAuthenticated
             onTriggered: {
                 loginDialog.registering = false
                 loginDialog.open()
@@ -31,20 +31,20 @@ Item {
         }
         MenuItem {
             text: "Sync Now"
-            enabled: root.mainWindow && root.mainWindow.syncAuthenticated
-            onTriggered: root.mainWindow.syncNow()
+            enabled: root.appController && root.appController.syncAuthenticated
+            onTriggered: root.appController.syncNow()
         }
         MenuItem {
             text: "Log Out of Sync"
-            enabled: root.mainWindow && root.mainWindow.syncAuthenticated
-            onTriggered: root.mainWindow.logoutSync()
+            enabled: root.appController && root.appController.syncAuthenticated
+            onTriggered: root.appController.logoutSync()
         }
 
         MenuSeparator {}
 
         MenuItem {
             text: "Register Sync Account..."
-            enabled: root.mainWindow && !root.mainWindow.syncAuthenticated
+            enabled: root.appController && !root.appController.syncAuthenticated
             onTriggered: {
                 registerDialog.registering = true
                 registerDialog.open()
@@ -65,13 +65,13 @@ Item {
 
     AccountDialog {
         id: loginDialog
-        mainWindow: root.mainWindow
+        appController: root.appController
         registering: false
     }
 
     AccountDialog {
         id: registerDialog
-        mainWindow: root.mainWindow
+        appController: root.appController
         registering: true
     }
 
@@ -81,7 +81,7 @@ Item {
         fileMode: FileDialog.OpenFile
         currentFolder: StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
         nameFilters: ["CSV files (*.csv)"]
-        onAccepted: showResult(root.mainWindow.importBooksCsv(selectedFile))
+        onAccepted: showResult(root.appController.importBooksCsv(selectedFile))
     }
 
     FileDialog {
@@ -91,7 +91,7 @@ Item {
         currentFolder: StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
         nameFilters: ["CSV files (*.csv)"]
         defaultSuffix: "csv"
-        onAccepted: showResult(root.mainWindow.exportBooksCsv(selectedFile))
+        onAccepted: showResult(root.appController.exportBooksCsv(selectedFile))
     }
 
     Dialog {

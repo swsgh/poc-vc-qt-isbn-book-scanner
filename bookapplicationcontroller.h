@@ -1,5 +1,5 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#ifndef BOOKAPPLICATIONCONTROLLER_H
+#define BOOKAPPLICATIONCONTROLLER_H
 
 #include <QObject>
 #include <QUrl>
@@ -15,13 +15,13 @@ class BookCollectionModel;
 class QSortFilterProxyModel;
 class QQmlApplicationEngine;
 
-class MainWindow : public QObject
+class BookApplicationController : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QQmlApplicationEngine &engine, QObject *parent = nullptr);
-    ~MainWindow() override = default;
+    explicit BookApplicationController(QQmlApplicationEngine &engine, QObject *parent = nullptr);
+    ~BookApplicationController() override = default;
 
     Q_INVOKABLE void selectBook(const QString &isbn);
     Q_INVOKABLE void clearSelectedBook();
@@ -45,11 +45,13 @@ public:
     Q_PROPERTY(QString selectedBookTitle READ selectedBookTitle NOTIFY selectedBookChanged)
     Q_PROPERTY(QString selectedBookAuthors READ selectedBookAuthors NOTIFY selectedBookChanged)
     Q_PROPERTY(QString selectedBookIsbn READ selectedBookIsbn NOTIFY selectedBookChanged)
-    Q_PROPERTY(QString selectedBookMetadata READ selectedBookMetadata NOTIFY selectedBookChanged)
+    Q_PROPERTY(QString selectedBookPublicationDate READ selectedBookPublicationDate NOTIFY selectedBookChanged)
+    Q_PROPERTY(QString selectedBookPublisher READ selectedBookPublisher NOTIFY selectedBookChanged)
+    Q_PROPERTY(int selectedBookPageCount READ selectedBookPageCount NOTIFY selectedBookChanged)
     Q_PROPERTY(QUrl selectedBookCoverSource READ selectedBookCoverSource NOTIFY selectedBookChanged)
     Q_PROPERTY(bool scannerVisible READ scannerVisible NOTIFY scannerVisibilityChanged)
     Q_PROPERTY(QString scannerStatusText READ scannerStatusText NOTIFY scannerStatusChanged)
-    Q_PROPERTY(QString scannerStatusColor READ scannerStatusColor NOTIFY scannerStatusChanged)
+    Q_PROPERTY(QString scannerStatusSeverity READ scannerStatusSeverity NOTIFY scannerStatusChanged)
     Q_PROPERTY(bool syncAuthenticated READ syncAuthenticated NOTIFY syncStateChanged)
     Q_PROPERTY(bool syncServerReachable READ syncServerReachable NOTIFY syncConnectionChanged)
     Q_PROPERTY(QString applicationStatusText READ applicationStatusText NOTIFY applicationStatusChanged)
@@ -59,11 +61,13 @@ public:
     QString selectedBookTitle() const;
     QString selectedBookAuthors() const;
     QString selectedBookIsbn() const;
-    QString selectedBookMetadata() const;
+    QString selectedBookPublicationDate() const;
+    QString selectedBookPublisher() const;
+    int selectedBookPageCount() const;
     QUrl selectedBookCoverSource() const;
     bool scannerVisible() const;
     QString scannerStatusText() const;
-    QString scannerStatusColor() const;
+    QString scannerStatusSeverity() const;
     bool syncAuthenticated() const;
     bool syncServerReachable() const;
     QString applicationStatusText() const;
@@ -87,7 +91,7 @@ private:
     void setupConnections();
     void setupSync();
     void populateBookshelf();
-    void applyStatusStyle(const QString &text, const QString &textColor = {});
+    void setScannerStatus(const QString &text, const QString &severity = "normal");
     void setApplicationStatus(const QString &text, bool isError = false,
                               int durationMs = 5000);
     void updateSyncConnectionIndicator(bool connected);
@@ -102,7 +106,7 @@ private:
     QSortFilterProxyModel* m_bookFilterModel = nullptr;
     BookInfo m_selectedBook;
     QString m_scannerStatusText = "Center an ISBN barcode to add a book";
-    QString m_statusTextColor;
+    QString m_scannerStatusSeverity = "normal";
     bool m_scannerVisible = false;
     bool m_syncServerReachable = false;
     QString m_applicationStatusText;
@@ -110,4 +114,4 @@ private:
     quint64 m_applicationStatusGeneration = 0;
 };
 
-#endif // MAINWINDOW_H
+#endif // BOOKAPPLICATIONCONTROLLER_H

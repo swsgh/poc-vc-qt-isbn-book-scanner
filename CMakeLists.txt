@@ -48,8 +48,8 @@ endif()
 # The MANUAL_FINALIZATION flag allows for flexible deployment asset injection if needed later
 qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     main.cpp
-    mainwindow.cpp
-    mainwindow.h
+    bookapplicationcontroller.cpp
+    bookapplicationcontroller.h
     barcodescannercontroller.h
     barcodescannercontroller.cpp
     bookmetadataprovider.h
