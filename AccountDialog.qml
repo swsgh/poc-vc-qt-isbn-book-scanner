@@ -8,6 +8,9 @@ Dialog {
     property var mainWindow: null
     property bool registering: false
 
+    parent: Overlay.overlay
+    x: Math.round((parent.width - width) / 2)
+    y: Math.round((parent.height - height) / 2)
     modal: true
     width: 420
     title: registering ? "Register Sync Account" : "Log In to Sync"
@@ -37,7 +40,6 @@ Dialog {
             id: username
             Layout.fillWidth: true
             placeholderText: "Username"
-            autocomplete: false
         }
 
         TextField {

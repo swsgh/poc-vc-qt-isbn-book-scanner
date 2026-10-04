@@ -89,6 +89,7 @@ qt_add_qml_module(ISBNBookScanner
         scannerframeitem.h
         scannerframeitem.cpp
     QML_FILES
+        MainView.qml
         BookshelfView.qml
         BookDetailsView.qml
         ScannerPreview.qml

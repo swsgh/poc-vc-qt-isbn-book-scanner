@@ -15,7 +15,7 @@ Item {
         Accessible.name: "Settings and bookshelf actions"
         ToolTip.visible: hovered
         ToolTip.text: "Settings and bookshelf actions"
-        menu: settingsMenu
+        onClicked: settingsMenu.popup(settingsButton, 0, settingsButton.height)
     }
 
     Menu {

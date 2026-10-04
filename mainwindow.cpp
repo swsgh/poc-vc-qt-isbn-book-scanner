@@ -8,14 +8,10 @@
 #include "covercache.h"
 #include "bookcsv.h"
 
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
 #include <QMessageBox>
-#include <QLineEdit>
 #include <QApplication>
 #include <QEvent>
 #include <QPalette>
@@ -74,152 +70,29 @@ void MainWindow::initializeApplication()
 
 void MainWindow::setupUi()
 {
-    auto *centralWidget = new QWidget(this);
-    centralWidget->setAutoFillBackground(true);
-
-    auto *mainVerticalLayout = new QVBoxLayout(centralWidget);
-    mainVerticalLayout->setContentsMargins(12, 12, 12, 12);
-    mainVerticalLayout->setSpacing(10);
-
-    auto *controlsLayout = new QHBoxLayout;
-    auto *scannerToggleWidget = new QQuickWidget(centralWidget);
-    scannerToggleWidget->setFixedSize(176, 36);
-    scannerToggleWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    connect(scannerToggleWidget, &QQuickWidget::statusChanged, this,
-            [this, scannerToggleWidget](QQuickWidget::Status status) {
-                if (status == QQuickWidget::Error) {
-                    for (const QQmlError &error : scannerToggleWidget->errors()) {
-                        qWarning().noquote() << error.toString();
-                    }
-                } else if (status == QQuickWidget::Ready && scannerToggleWidget->rootObject()) {
-                    scannerToggleWidget->rootObject()->setProperty(
-                        "scannerActions", QVariant::fromValue(static_cast<QObject *>(this)));
-                }
-            });
-    scannerToggleWidget->setSource(
-        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/ScannerToggle.qml")));
-    controlsLayout->addWidget(scannerToggleWidget);
-    controlsLayout->addStretch();
-
-    m_syncConnectionIndicator = new QLabel(centralWidget);
-    m_syncConnectionIndicator->setObjectName("syncConnectionIndicator");
-    m_syncConnectionIndicator->setFixedSize(12, 12);
-    m_syncConnectionIndicator->setToolTip("Log in to check sync server");
-    m_syncConnectionIndicator->setAccessibleName("Sync server connection status");
-    m_syncConnectionIndicator->setStyleSheet(
-        "QLabel { background-color: #8a929c; border-radius: 6px; }");
-    controlsLayout->addWidget(m_syncConnectionIndicator, 0, Qt::AlignVCenter);
-
-    m_settingsQuickWidget = new QQuickWidget(centralWidget);
-    m_settingsQuickWidget->setFixedSize(42, 36);
-    m_settingsQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    connect(m_settingsQuickWidget, &QQuickWidget::statusChanged, this,
+    m_mainQuickWidget = new QQuickWidget(this);
+    m_mainQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    connect(m_mainQuickWidget, &QQuickWidget::statusChanged, this,
             [this](QQuickWidget::Status status) {
                 if (status == QQuickWidget::Error) {
-                    for (const QQmlError &error : m_settingsQuickWidget->errors()) {
+                    for (const QQmlError &error : m_mainQuickWidget->errors()) {
                         qWarning().noquote() << error.toString();
                     }
-                } else if (status == QQuickWidget::Ready && m_settingsQuickWidget->rootObject()) {
-                    m_settingsQuickWidget->rootObject()->setProperty(
-                        "mainWindow", QVariant::fromValue(static_cast<QObject *>(this)));
-                }
-            });
-    m_settingsQuickWidget->setSource(
-        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/SettingsMenu.qml")));
-    controlsLayout->addWidget(m_settingsQuickWidget);
-    mainVerticalLayout->addLayout(controlsLayout);
-
-    m_scannerPanel = new QWidget(centralWidget);
-    m_scannerPanel->setMaximumHeight(340);
-    auto *scannerLayout = new QVBoxLayout(m_scannerPanel);
-    scannerLayout->setContentsMargins(0, 0, 0, 0);
-    scannerLayout->setSpacing(0);
-
-    auto *scannerQuickWidget = new QQuickWidget(m_scannerPanel);
-    scannerQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    scannerQuickWidget->setMinimumSize(320, 320);
-    connect(scannerQuickWidget, &QQuickWidget::statusChanged, this,
-            [this, scannerQuickWidget](QQuickWidget::Status status) {
-                if (status == QQuickWidget::Error) {
-                    for (const QQmlError &error : scannerQuickWidget->errors()) {
-                        qWarning().noquote() << error.toString();
-                    }
-                } else if (status == QQuickWidget::Ready && scannerQuickWidget->rootObject()) {
-                    QQuickItem *root = scannerQuickWidget->rootObject();
+                } else if (status == QQuickWidget::Ready && m_mainQuickWidget->rootObject()) {
+                    QQuickItem *root = m_mainQuickWidget->rootObject();
+                    root->setProperty("mainWindow",
+                                      QVariant::fromValue(static_cast<QObject *>(this)));
+                    root->setProperty("bookCollection",
+                                      QVariant::fromValue(static_cast<QObject *>(m_bookFilterModel)));
                     root->setProperty("scannerController",
                                       QVariant::fromValue(static_cast<QObject *>(m_scannerController)));
-                    root->setProperty("scannerActions",
-                                      QVariant::fromValue(static_cast<QObject *>(this)));
                 }
             });
-    scannerQuickWidget->setSource(
-        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/ScannerControls.qml")));
-    scannerLayout->addWidget(scannerQuickWidget);
-
-    m_scannerPanel->hide();
-    mainVerticalLayout->addWidget(m_scannerPanel);
-
-    auto *bottomRowContainer = new QWidget(this);
-    auto *bottomRowLayout = new QHBoxLayout(bottomRowContainer);
-    bottomRowLayout->setContentsMargins(0, 5, 0, 0);
-
-    auto *bookshelfAreaContainer = new QWidget(this);
-    auto *bookshelfAreaLayout = new QVBoxLayout(bookshelfAreaContainer);
-    bookshelfAreaLayout->setContentsMargins(0, 0, 0, 0);
-    bookshelfAreaLayout->setSpacing(8);
-
-    m_bookshelfQuickWidget = new QQuickWidget(bookshelfAreaContainer);
-    m_bookshelfQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    m_bookshelfQuickWidget->rootContext()->setContextProperty(
-        "bookCollection", m_bookFilterModel);
-    m_bookshelfQuickWidget->rootContext()->setContextProperty("bookSelection", this);
-    connect(m_bookshelfQuickWidget, &QQuickWidget::statusChanged, this,
-            [this](QQuickWidget::Status status) {
-                if (status == QQuickWidget::Error) {
-                    for (const QQmlError &error : m_bookshelfQuickWidget->errors()) {
-                        qWarning().noquote() << error.toString();
-                    }
-                }
-            });
-    m_bookshelfQuickWidget->setSource(
-        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/BookshelfView.qml")));
-    bookshelfAreaLayout->addWidget(m_bookshelfQuickWidget, 1);
-
-    m_searchBar = new QLineEdit(this);
-    m_searchBar->setObjectName("bookSearchBar");
-    m_searchBar->setPlaceholderText("🔎 Type to filter bookshelf by title or author name...");
-    m_searchBar->setClearButtonEnabled(true);
-    bookshelfAreaLayout->addWidget(m_searchBar, 0);
-
-    bottomRowLayout->addWidget(bookshelfAreaContainer, 3);
-
-    m_bookDetailsQuickWidget = new QQuickWidget(bottomRowContainer);
-    m_bookDetailsQuickWidget->setMinimumWidth(260);
-    m_bookDetailsQuickWidget->setMaximumWidth(320);
-    m_bookDetailsQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    connect(m_bookDetailsQuickWidget, &QQuickWidget::statusChanged, this,
-            [this](QQuickWidget::Status status) {
-                if (status == QQuickWidget::Error) {
-                    for (const QQmlError &error : m_bookDetailsQuickWidget->errors()) {
-                        qWarning().noquote() << error.toString();
-                    }
-                } else if (status == QQuickWidget::Ready
-                           && m_bookDetailsQuickWidget->rootObject()) {
-                    m_bookDetailsQuickWidget->rootObject()->setProperty(
-                        "selection", QVariant::fromValue(static_cast<QObject *>(this)));
-                }
-            });
-    m_bookDetailsQuickWidget->setSource(
-        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/BookDetailsView.qml")));
-    m_bookDetailsQuickWidget->setVisible(false);
-    bottomRowLayout->addWidget(m_bookDetailsQuickWidget, 1);
-
-    mainVerticalLayout->addWidget(bottomRowContainer, 1);
-
-    setCentralWidget(centralWidget);
+    m_mainQuickWidget->setSource(
+        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/MainView.qml")));
+    setCentralWidget(m_mainQuickWidget);
     setWindowTitle("ISBN Book Scanner");
     resize(950, 900);
-
 }
 
 QVariantMap MainWindow::exportBooksCsv(const QUrl &fileUrl)
@@ -311,43 +184,16 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
     m_applyingPalette = true;
 
     const QString windowColor = palette.color(QPalette::Window).name();
-    const QString baseColor = palette.color(QPalette::Base).name();
-    const QString textColor = palette.color(QPalette::WindowText).name();
-    const QString disabledTextColor = palette.color(QPalette::Disabled, QPalette::WindowText).name();
-    const QString borderColor = palette.color(QPalette::Mid).name();
-    const QString buttonColor = palette.color(QPalette::Button).name();
-    const QString buttonText = palette.color(QPalette::ButtonText).name();
-    const QString highlightColor = palette.color(QPalette::Highlight).name();
-    const QString highlightedText = palette.color(QPalette::HighlightedText).name();
-
     setPalette(palette);
-    centralWidget()->setPalette(palette);
-    centralWidget()->setAutoFillBackground(true);
-    setStyleSheet(QString(
-        "QMainWindow { background-color: %1; }"
-        "QWidget { color: %2; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }"
-        "QFrame { border: 1px solid %3; border-radius: 8px; background-color: %4; }"
-        "QLabel { background-color: transparent; border: none; padding: 0px; }"
-        "QPushButton { background-color: %5; color: %6; border: 1px solid %3; "
-        "border-radius: 6px; padding: 10px; font-weight: bold; }"
-        "QPushButton:hover { background-color: %7; color: %8; }"
-        "QLineEdit { background-color: %4; border: 1px solid %3; border-radius: 6px; "
-        "padding: 10px; color: %2; font-size: 14px; }"
-        "QLineEdit:focus { border: 1px solid %7; }"
-        "QListWidget { background-color: %4; border: 1px solid %3; border-radius: 8px; }")
-        .arg(windowColor, textColor, borderColor, baseColor,
-               buttonColor, buttonText, highlightColor, highlightedText)
-           .arg(disabledTextColor));
-
-    applyStatusStyle(m_scannerStatusText, m_statusTextColor);
+    setStyleSheet(QString("QMainWindow { background-color: %1; }").arg(windowColor));
+    emit scannerStatusChanged();
     m_applyingPalette = false;
 }
 
 void MainWindow::toggleScannerPanel()
 {
-    const bool showPanel = m_scannerPanel->isHidden();
-    m_scannerPanel->setVisible(showPanel);
-    if (showPanel) {
+    m_scannerVisible = !m_scannerVisible;
+    if (m_scannerVisible) {
         m_scannerController->startCapture();
     } else {
         m_scannerController->stopCapture();
@@ -410,7 +256,6 @@ void MainWindow::setupConnections()
         updateStatusLabel(err, true);
     });
 
-    connect(m_searchBar, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
     connect(m_metadataProvider, &BookMetadataProvider::coverCached, this,
             [this](const QString &isbn) {
                 const BookInfo info = m_dbManager->getBookByIsbn(isbn);
@@ -419,8 +264,6 @@ void MainWindow::setupConnections()
                     emit selectedBookChanged();
                 }
             });
-    connect(this, &MainWindow::selectedBookChanged, m_bookDetailsQuickWidget,
-            [this]() { m_bookDetailsQuickWidget->setVisible(selectedBookVisible()); });
 }
 
 void MainWindow::setupSync()
@@ -454,14 +297,8 @@ void MainWindow::setupSync()
 
 void MainWindow::updateSyncConnectionIndicator(bool connected)
 {
-    const QString color = connected ? "#2f9e62" : "#d64f4f";
-    const QString description = connected
-        ? "Sync server is reachable"
-        : "Sync server is unreachable";
-    m_syncConnectionIndicator->setStyleSheet(
-        QString("QLabel { background-color: %1; border-radius: 6px; }").arg(color));
-    m_syncConnectionIndicator->setToolTip(description);
-    m_syncConnectionIndicator->setAccessibleDescription(description);
+    m_syncServerReachable = connected;
+    emit syncConnectionChanged();
 }
 
 QString MainWindow::submitSyncCredentials(bool registering, const QString &serverUrl,
@@ -523,10 +360,8 @@ void MainWindow::logoutSync()
         return;
     }
     m_syncManager->logoutAccount();
-    m_syncConnectionIndicator->setStyleSheet(
-        "QLabel { background-color: #8a929c; border-radius: 6px; }");
-    m_syncConnectionIndicator->setToolTip("Log in to check sync server");
-    m_syncConnectionIndicator->setAccessibleDescription("Log in to check sync server");
+    m_syncServerReachable = false;
+    emit syncConnectionChanged();
     emit syncStateChanged();
     statusBar()->showMessage("Signed out of sync.", 5000);
 }
@@ -558,6 +393,11 @@ bool MainWindow::shouldRememberSyncUsername() const
 bool MainWindow::syncAuthenticated() const
 {
     return m_syncManager && m_syncManager->isAuthenticated();
+}
+
+bool MainWindow::syncServerReachable() const
+{
+    return m_syncServerReachable;
 }
 
 void MainWindow::populateBookshelf()
@@ -602,7 +442,7 @@ void MainWindow::displayBookDetails(const BookInfo &info)
 
 bool MainWindow::scannerVisible() const
 {
-    return m_scannerPanel && !m_scannerPanel->isHidden();
+    return m_scannerVisible;
 }
 
 QString MainWindow::scannerStatusText() const
@@ -632,7 +472,7 @@ void MainWindow::removeBookRecord(const QString &isbn)
     m_syncCoordinator->removeBook(isbn);
 }
 
-void MainWindow::onSearchTextChanged(const QString &text)
+void MainWindow::setBookSearchText(const QString &text)
 {
     m_bookFilterModel->setFilterFixedString(text.trimmed());
 }

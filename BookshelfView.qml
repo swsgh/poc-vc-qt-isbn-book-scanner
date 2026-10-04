@@ -4,6 +4,9 @@ import QtQuick.Controls
 Rectangle {
     id: root
 
+    property var collection: null
+    property var selection: null
+
     color: systemPalette.base
 
     SystemPalette {
@@ -31,7 +34,7 @@ Rectangle {
             cellWidth: 136
             cellHeight: 160
             clip: true
-            model: bookCollection
+            model: root.collection
 
             delegate: Item {
                 required property string isbn
@@ -91,7 +94,11 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: bookSelection.selectBook(isbn)
+                    onClicked: {
+                        if (root.selection) {
+                            root.selection.selectBook(isbn)
+                        }
+                    }
                 }
             }
 
