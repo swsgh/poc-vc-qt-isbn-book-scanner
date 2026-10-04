@@ -65,6 +65,7 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     bookdetailssidebar.cpp
     booksyncmanager.h
     booksyncmanager.cpp
+    README.md
 )
 
 # 4. Target Link Libraries & Platform Setup
