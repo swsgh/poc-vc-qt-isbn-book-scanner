@@ -46,6 +46,8 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     main.cpp
     mainwindow.cpp
     mainwindow.h
+    synccredentialsdialog.h
+    synccredentialsdialog.cpp
     barcodescannerview.h
     barcodescannerview.cpp
     bookmetadataprovider.h
@@ -68,6 +70,8 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     bookdetailssidebar.cpp
     booksyncmanager.h
     booksyncmanager.cpp
+    booksynccoordinator.h
+    booksynccoordinator.cpp
     README.md
 )
 

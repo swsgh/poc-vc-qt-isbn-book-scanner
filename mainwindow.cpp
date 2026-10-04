@@ -5,8 +5,10 @@
 #include "bookshelfwidget.h"
 #include "bookdetailssidebar.h"
 #include "booksyncmanager.h"
+#include "booksynccoordinator.h"
 #include "covercache.h"
 #include "bookcsv.h"
+#include "synccredentialsdialog.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -16,19 +18,12 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QLineEdit>
-#include <QSet>
-#include <QDialog>
-#include <QFormLayout>
-#include <QDialogButtonBox>
-#include <QCheckBox>
 #include <QMenu>
-#include <QGridLayout>
 #include <QAction>
 #include <QApplication>
 #include <QEvent>
 #include <QPalette>
 #include <QSettings>
-#include <QUrl>
 #include <QFrame>
 #include <QPushButton>
 #include <QToolButton>
@@ -258,7 +253,7 @@ void MainWindow::importBooksCsv()
     }
 
     if (importedCount > 0 && m_syncManager->isAuthenticated()) {
-        handleSyncQueueFlush();
+        m_syncCoordinator->flushQueue();
     }
     QMessageBox::information(
         this, "Import CSV",
@@ -395,7 +390,6 @@ void MainWindow::setupConnections()
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &MainWindow::displayBookDetails);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
 
-    connect(m_dbManager, &BookDatabaseManager::bookSavedSuccessfully, this, &MainWindow::handleBookSaved);
     connect(m_dbManager, &BookDatabaseManager::databaseError, this, [this](const QString &err) {
         updateStatusLabel(err, true);
     });
@@ -413,19 +407,16 @@ void MainWindow::setupConnections()
 
 void MainWindow::setupSync()
 {
+    m_syncCoordinator = new BookSyncCoordinator(
+        m_dbManager, m_syncManager, m_metadataProvider,
+        m_bookshelfWidget, m_detailsSidebar, this);
+    connect(m_syncCoordinator, &BookSyncCoordinator::statusMessage,
+            this, &MainWindow::updateStatusLabel);
+    connect(m_syncCoordinator, &BookSyncCoordinator::syncSummary, this,
+            [this](const QString &message) { statusBar()->showMessage(message, 10000); });
     connect(m_syncManager, &BookSyncManager::serverConnectionChanged,
             this, &MainWindow::updateSyncConnectionIndicator);
-    connect(m_syncManager, &BookSyncManager::uploadSucceeded, this, [this](const QString &isbn) {
-        m_dbManager->removePendingAction(isbn, "UPLOAD");
-    });
-    connect(m_syncManager, &BookSyncManager::deleteSucceeded, this, [this](const QString &isbn) {
-        m_dbManager->removePendingAction(isbn, "DELETE");
-    });
     connect(m_syncManager, &BookSyncManager::loginSuccess, this, &MainWindow::handleLoginSuccess);
-    connect(m_syncManager, &BookSyncManager::remoteBookUpdatesDownloaded,
-            this, &MainWindow::handleRemoteBookUpdates);
-    connect(m_syncManager, &BookSyncManager::syncCompleted,
-            this, &MainWindow::handleSyncCompleted);
     connect(m_syncManager, &BookSyncManager::authStatusMessage,
             this, [this](const QString &message, bool isError) {
                 statusBar()->showMessage(message, isError ? 15000 : 5000);
@@ -450,10 +441,11 @@ void MainWindow::updateSyncConnectionIndicator(bool connected)
 
 void MainWindow::promptRegisterAccount()
 {
-    QString serverUrl;
-    QString username;
-    QString password;
-    if (!promptSyncCredentials(true, serverUrl, username, password)) return;
+    SyncCredentialsDialog dialog(true, this);
+    if (dialog.exec() != QDialog::Accepted) return;
+    const QString serverUrl = dialog.serverUrl();
+    const QString username = dialog.username();
+    const QString password = dialog.password();
 
     m_syncManager->setSyncCheckpoint(
         m_dbManager->getSyncCheckpoint(username),
@@ -464,10 +456,11 @@ void MainWindow::promptRegisterAccount()
 
 void MainWindow::promptLoginAccount()
 {
-    QString serverUrl;
-    QString username;
-    QString password;
-    if (!promptSyncCredentials(false, serverUrl, username, password)) return;
+    SyncCredentialsDialog dialog(false, this);
+    if (dialog.exec() != QDialog::Accepted) return;
+    const QString serverUrl = dialog.serverUrl();
+    const QString username = dialog.username();
+    const QString password = dialog.password();
 
     m_syncManager->setSyncCheckpoint(
         m_dbManager->getSyncCheckpoint(username),
@@ -476,117 +469,13 @@ void MainWindow::promptLoginAccount()
     m_syncManager->loginAccount(username, password);
 }
 
-bool MainWindow::promptSyncCredentials(bool registering, QString &serverUrl,
-                                       QString &username, QString &password)
-{
-    QSettings settings;
-    const QString environmentUrl = qEnvironmentVariable("BOOKSHELF_SYNC_URL");
-    const QString defaultUrl = !environmentUrl.isEmpty()
-        ? environmentUrl
-        : settings.value("sync/server_url", "http://127.0.0.1:8000").toString();
-    const QString rememberedUsername = settings.value("sync/username").toString();
-
-    QDialog dialog(this);
-    dialog.setWindowTitle(registering ? "Register Sync Account" : "Log In to Sync");
-    const int maximumDialogWidth = std::max(1, width() * 4 / 5);
-    dialog.setMaximumWidth(maximumDialogWidth);
-    dialog.setMinimumWidth(std::min(375, maximumDialogWidth));
-    dialog.setStyleSheet("QDialog QLabel { background-color: transparent; border: none; }");
-
-    QLineEdit serverUrlInput(&dialog);
-    serverUrlInput.setText(defaultUrl);
-    QLineEdit usernameInput(&dialog);
-    if (!registering) usernameInput.setText(rememberedUsername);
-    QLineEdit passwordInput(&dialog);
-    passwordInput.setEchoMode(QLineEdit::Password);
-    QLineEdit *confirmationInput = nullptr;
-    if (registering) {
-        confirmationInput = new QLineEdit(&dialog);
-        confirmationInput->setEchoMode(QLineEdit::Password);
-    }
-    QCheckBox *rememberUsername = nullptr;
-    if (!registering) {
-        rememberUsername = new QCheckBox("Remember username", &dialog);
-        rememberUsername->setChecked(!rememberedUsername.isEmpty());
-    }
-
-    auto *form = new QGridLayout;
-    form->setColumnMinimumWidth(0, 130);
-    form->setColumnStretch(1, 1);
-    const auto addField = [form, &dialog](int row, const QString &labelText,
-                                          QLineEdit *field) {
-        auto *label = new QLabel(labelText, &dialog);
-        label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        label->setFrameShape(QFrame::NoFrame);
-        label->setAutoFillBackground(false);
-        label->setStyleSheet(
-            "QLabel { background-color: transparent; border: none; padding: 0px; }");
-        form->addWidget(label, row, 0);
-        form->addWidget(field, row, 1);
-    };
-    addField(0, "Server URL:", &serverUrlInput);
-    addField(1, "Username:", &usernameInput);
-    addField(2, "Password:", &passwordInput);
-    int nextRow = 3;
-    if (registering) {
-        addField(nextRow++, "Confirm password:", confirmationInput);
-    }
-    if (rememberUsername) form->addWidget(rememberUsername, nextRow, 1);
-
-    auto *layout = new QVBoxLayout(&dialog);
-    layout->addLayout(form);
-    auto *buttons = new QDialogButtonBox(
-        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    layout->addWidget(buttons);
-
-    connect(buttons, &QDialogButtonBox::accepted, &dialog, [&]() {
-        const QString enteredUrl = serverUrlInput.text().trimmed();
-        const QUrl url(enteredUrl);
-        const QString scheme = url.scheme().toLower();
-        if (!url.isValid() || url.host().isEmpty()
-            || (scheme != "http" && scheme != "https")) {
-            QMessageBox::warning(
-                &dialog, "Invalid Server URL",
-                "Enter an absolute http:// or https:// server URL.");
-            return;
-        }
-        if (usernameInput.text().trimmed().isEmpty() || passwordInput.text().isEmpty()) {
-            QMessageBox::warning(&dialog, dialog.windowTitle(), "Enter a username and password.");
-            return;
-        }
-        if (registering && passwordInput.text() != confirmationInput->text()) {
-            QMessageBox::warning(&dialog, dialog.windowTitle(), "The passwords do not match.");
-            return;
-        }
-        dialog.accept();
-    });
-    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-
-    if (dialog.exec() != QDialog::Accepted) return false;
-
-    serverUrl = serverUrlInput.text().trimmed();
-    while (serverUrl.endsWith('/')) serverUrl.chop(1);
-    username = usernameInput.text().trimmed();
-    password = passwordInput.text();
-    settings.setValue("sync/server_url", serverUrl);
-    if (rememberUsername) {
-        if (rememberUsername->isChecked()) {
-            settings.setValue("sync/username", username);
-        } else {
-            settings.remove("sync/username");
-        }
-    }
-    return true;
-}
-
 void MainWindow::syncNow()
 {
     if (!m_syncManager->isAuthenticated()) {
         statusBar()->showMessage("Log in before synchronizing.", 5000);
         return;
     }
-    m_syncDownloadedCount = 0;
-    m_syncRemovedCount = 0;
+    m_syncCoordinator->beginSync();
     statusBar()->showMessage("Synchronizing bookshelf...");
     m_syncManager->triggerDifferentialSync();
 }
@@ -611,38 +500,10 @@ void MainWindow::logoutSync()
 
 void MainWindow::handleLoginSuccess()
 {
-    m_syncDownloadedCount = 0;
-    m_syncRemovedCount = 0;
     m_registerAction->setEnabled(false);
     m_loginAction->setEnabled(false);
     m_syncAction->setEnabled(true);
     m_logoutAction->setEnabled(true);
-}
-
-void MainWindow::handleSyncCompleted(const QString &username, qint64 checkpoint,
-                                     bool initialSync, const QStringList &remoteIsbns)
-{
-    m_dbManager->setSyncCheckpoint(username, checkpoint);
-
-    if (initialSync) {
-        const QSet<QString> serverBooks(remoteIsbns.begin(), remoteIsbns.end());
-        for (const BookInfo &book : m_dbManager->getAllSavedBooks()) {
-            if (!serverBooks.contains(book.isbn) && !m_dbManager->hasPendingAction(book.isbn)) {
-                m_dbManager->addPendingUpload(book.isbn);
-            }
-        }
-    }
-
-    const int uploadCount = m_dbManager->getPendingUploads().size();
-    const int deleteCount = m_dbManager->getPendingDeletes().size();
-    handleSyncQueueFlush();
-    statusBar()->showMessage(
-        QString("Sync complete: %1 downloaded, %2 removed, %3 uploaded, %4 deletes sent.")
-            .arg(m_syncDownloadedCount)
-            .arg(m_syncRemovedCount)
-            .arg(uploadCount)
-            .arg(deleteCount),
-        10000);
 }
 
 void MainWindow::populateBookshelf()
@@ -668,73 +529,6 @@ void MainWindow::applyStatusStyle(const QString &text, const QString &textColor)
         style += " color: " + textColor + ";";
     }
     m_statusLabel->setStyleSheet(style);
-}
-
-void MainWindow::handleBookSaved(const QString &isbn)
-{
-    const BookInfo freshRecord = m_dbManager->getBookByIsbn(isbn);
-    if (freshRecord.found) {
-        m_bookshelfWidget->addBookToShelf(freshRecord, true);
-
-        if (m_syncManager) {
-            m_dbManager->addPendingUpload(isbn);
-            m_syncManager->uploadBookToServer(freshRecord);
-        }
-    }
-
-    applyStatusStyle(QString("✅ Logged: %1").arg(freshRecord.title));
-}
-
-void MainWindow::handleSyncQueueFlush()
-{
-    const QStringList deletes = m_dbManager->getPendingDeletes();
-    for (const QString &isbn : deletes) {
-        m_syncManager->deleteBookFromServer(isbn);
-    }
-
-    const QStringList uploads = m_dbManager->getPendingUploads();
-    for (const QString &isbn : uploads) {
-        const BookInfo book = m_dbManager->getBookByIsbn(isbn);
-        if (book.found) {
-            m_syncManager->uploadBookToServer(book);
-        } else {
-            m_dbManager->removePendingAction(isbn, "UPLOAD");
-        }
-    }
-}
-
-void MainWindow::handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
-                                         const QStringList &isbnsToDelete)
-{
-    QSet<QString> pendingLocalIsbns;
-    for (const QString &isbn : m_dbManager->getPendingUploads()) {
-        pendingLocalIsbns.insert(isbn);
-    }
-    for (const QString &isbn : m_dbManager->getPendingDeletes()) {
-        pendingLocalIsbns.insert(isbn);
-    }
-
-    QSet<QString> tombstones;
-    for (const QString &isbn : isbnsToDelete) {
-        if (pendingLocalIsbns.contains(isbn)) continue;
-        tombstones.insert(isbn);
-        m_dbManager->deleteBookRecord(isbn);
-        m_bookshelfWidget->removeBookFromShelf(isbn);
-        CoverCache::removeImage(isbn);
-        ++m_syncRemovedCount;
-    }
-
-    for (const BookInfo &book : booksToSave) {
-        if (tombstones.contains(book.isbn) || pendingLocalIsbns.contains(book.isbn)) {
-            continue;
-        }
-        m_dbManager->saveRemoteBookRecord(book);
-        m_bookshelfWidget->addBookToShelf(book, true);
-        ++m_syncDownloadedCount;
-        if (!book.coverUrl.isEmpty() && !CoverCache::contains(book.isbn)) {
-            m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl);
-        }
-    }
 }
 
 void MainWindow::updateStatusLabel(const QString &text, bool isError)
@@ -770,22 +564,7 @@ void MainWindow::removeBookRecord(const QString &isbn)
         return;
     }
 
-    const bool success = m_dbManager->deleteBookRecord(isbn);
-    if (!success) {
-        updateStatusLabel("Failed to remove book from local database storage hierarchy.", true);
-        return;
-    }
-
-    m_bookshelfWidget->removeBookFromShelf(isbn);
-    m_detailsSidebar->closeSidebar();
-    CoverCache::removeImage(isbn);
-
-    if (m_syncManager) {
-        m_dbManager->addPendingDelete(isbn);
-        m_syncManager->deleteBookFromServer(isbn);
-    }
-
-    applyStatusStyle("🗑️ Book removed from collection.");
+    m_syncCoordinator->removeBook(isbn);
 }
 
 void MainWindow::onSearchTextChanged(const QString &text)

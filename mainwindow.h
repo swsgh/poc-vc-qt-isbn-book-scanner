@@ -10,6 +10,7 @@ class BookDatabaseManager;
 class BookshelfWidget;
 class BookDetailsSidebar;
 class BookSyncManager;
+class BookSyncCoordinator;
 class QAction;
 class QEvent;
 class QLabel;
@@ -39,8 +40,6 @@ private slots:
     void toggleCameraView();
     void importBooksCsv();
     void exportBooksCsv();
-    void handleSyncCompleted(const QString &username, qint64 checkpoint,
-                             bool initialSync, const QStringList &remoteIsbns);
 
 protected:
     void changeEvent(QEvent *event) override;
@@ -52,16 +51,10 @@ private:
     void setupConnections();
     void setupSync();
     void populateBookshelf();
-    bool promptSyncCredentials(bool registering, QString &serverUrl,
-                               QString &username, QString &password);
     void applyPaletteStyles(const QPalette &palette);
     void applyStatusStyle(const QString &text, const QString &textColor = {});
     void updateSyncConnectionIndicator(bool connected);
-    void handleBookSaved(const QString &isbn);
-    void handleSyncQueueFlush();
     void handleLoginSuccess();
-    void handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
-                                 const QStringList &isbnsToDelete);
 
     BarcodeScannerView* m_scannerView = nullptr;
     BookMetadataProvider* m_metadataProvider = nullptr;
@@ -69,6 +62,7 @@ private:
     BookshelfWidget* m_bookshelfWidget = nullptr;
     BookDetailsSidebar* m_detailsSidebar = nullptr;
     BookSyncManager* m_syncManager = nullptr;
+    BookSyncCoordinator* m_syncCoordinator = nullptr;
     QWidget* m_scannerPanel = nullptr;
     QLabel* m_statusLabel = nullptr;
     QLabel* m_syncConnectionIndicator = nullptr;
@@ -82,8 +76,6 @@ private:
     QAction* m_syncAction = nullptr;
     QAction* m_logoutAction = nullptr;
     QString m_statusTextColor;
-    int m_syncDownloadedCount = 0;
-    int m_syncRemovedCount = 0;
     bool m_applyingPalette = false;
 };
 
