@@ -53,6 +53,13 @@ void MainWindow::setupUi()
     m_cameraToggleButton = new QPushButton("📷 Show Camera", centralWidget);
     m_cameraToggleButton->setObjectName("cameraToggleButton");
     m_cameraToggleButton->setToolTip("Show the camera preview and start capture");
+    m_cameraToggleButton->setAccessibleName("Camera preview toggle");
+    m_cameraToggleButton->setMinimumWidth(140);
+    m_cameraToggleButton->setFixedHeight(36);
+    m_cameraToggleButton->setStyleSheet(
+        "QPushButton { background-color: #1e1e1e; border: 1px solid #3a3a3a; "
+        "border-radius: 4px; font-size: 14px; padding: 0px 10px; }"
+        "QPushButton:hover { border-color: #3498db; }");
     connect(m_cameraToggleButton, &QPushButton::clicked,
             this, &MainWindow::toggleCameraView);
     controlsLayout->addWidget(m_cameraToggleButton);
