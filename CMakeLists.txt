@@ -51,6 +51,8 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     bookmetadataprovider.h
     bookmetadataprovider.cpp
     bookinfo.h
+    bookcsv.h
+    bookcsv.cpp
     covercache.h
     covercache.cpp
     abstractbookprovider.h

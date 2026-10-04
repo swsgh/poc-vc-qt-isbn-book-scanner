@@ -6,6 +6,7 @@
 #include "bookdetailssidebar.h"
 #include "booksyncmanager.h"
 #include "covercache.h"
+#include "bookcsv.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -34,75 +35,7 @@
 #include <QStatusBar>
 #include <QSizePolicy>
 #include <QFileDialog>
-#include <QFile>
-#include <QTextStream>
-#include <QStringConverter>
 #include <algorithm>
-
-namespace {
-QString escapeCsvField(QString field)
-{
-    field.replace('"', "\"\"");
-    return '"' + field + '"';
-}
-
-bool parseCsvRecords(const QString &contents, QList<QStringList> &records)
-{
-    QStringList record;
-    QString field;
-    bool insideQuotes = false;
-    bool recordHasData = false;
-
-    for (qsizetype index = 0; index < contents.size(); ++index) {
-        const QChar character = contents.at(index);
-        if (insideQuotes) {
-            if (character == '"') {
-                if (index + 1 < contents.size() && contents.at(index + 1) == '"') {
-                    field.append('"');
-                    ++index;
-                } else {
-                    insideQuotes = false;
-                }
-            } else {
-                field.append(character);
-            }
-            recordHasData = true;
-            continue;
-        }
-
-        if (character == '"' && field.isEmpty()) {
-            insideQuotes = true;
-            recordHasData = true;
-        } else if (character == ',') {
-            record.append(field);
-            field.clear();
-            recordHasData = true;
-        } else if (character == '\r' || character == '\n') {
-            if (character == '\r' && index + 1 < contents.size()
-                && contents.at(index + 1) == '\n') {
-                ++index;
-            }
-            if (recordHasData || !record.isEmpty()) {
-                record.append(field);
-                records.append(record);
-            }
-            record.clear();
-            field.clear();
-            recordHasData = false;
-        } else {
-            field.append(character);
-            recordHasData = true;
-        }
-    }
-
-    if (insideQuotes) return false;
-    if (recordHasData || !record.isEmpty()) {
-        record.append(field);
-        records.append(record);
-    }
-    return true;
-}
-}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -281,29 +214,9 @@ void MainWindow::exportBooksCsv()
     if (filePath.isEmpty()) return;
     if (!filePath.endsWith(".csv", Qt::CaseInsensitive)) filePath += ".csv";
 
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "Export CSV Failed", file.errorString());
-        return;
-    }
-
-    QTextStream stream(&file);
-    stream.setEncoding(QStringConverter::Utf8);
-    stream.setGenerateByteOrderMark(true);
-    stream << "ISBN,Title,Author,Engine Source,Cover URL,First Publication Date,Publisher,Page Count\r\n";
-    for (const BookInfo &book : books) {
-        stream << escapeCsvField(book.isbn) << ','
-               << escapeCsvField(book.title) << ','
-               << escapeCsvField(book.authors) << ','
-               << escapeCsvField(book.engineSource) << ','
-               << escapeCsvField(book.coverUrl) << ','
-               << escapeCsvField(book.publicationDate) << ','
-               << escapeCsvField(book.publisher) << ','
-               << book.pageCount << "\r\n";
-    }
-    stream.flush();
-    if (stream.status() != QTextStream::Ok) {
-        QMessageBox::critical(this, "Export CSV Failed", "Could not write the CSV file.");
+    QString error;
+    if (!BookCsv::writeFile(filePath, books, error)) {
+        QMessageBox::critical(this, "Export CSV Failed", error);
         return;
     }
     QMessageBox::information(this, "Export CSV",
@@ -318,64 +231,16 @@ void MainWindow::importBooksCsv()
         "CSV files (*.csv)");
     if (filePath.isEmpty()) return;
 
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "Import CSV Failed", file.errorString());
-        return;
-    }
-
-    QTextStream stream(&file);
-    stream.setEncoding(QStringConverter::Utf8);
-    QList<QStringList> records;
-    if (!parseCsvRecords(stream.readAll(), records) || records.isEmpty()) {
-        QMessageBox::warning(this, "Import CSV Failed", "The CSV file is empty or malformed.");
-        return;
-    }
-
-    QStringList headers = records.first();
-    if (!headers.isEmpty() && headers.first().startsWith(QChar::ByteOrderMark)) {
-        headers[0].remove(0, 1);
-    }
-    const QStringList expectedHeaders = {
-        "ISBN", "Title", "Author", "Engine Source", "Cover URL",
-        "First Publication Date", "Publisher", "Page Count"
-    };
-    if (headers != expectedHeaders) {
-        QMessageBox::warning(
-            this, "Import CSV Failed",
-            "CSV headers must be: " + expectedHeaders.join(", "));
+    QList<BookInfo> importedBooks;
+    int skippedCount = 0;
+    QString error;
+    if (!BookCsv::readFile(filePath, importedBooks, skippedCount, error)) {
+        QMessageBox::warning(this, "Import CSV Failed", error);
         return;
     }
 
     int importedCount = 0;
-    int skippedCount = 0;
-    for (qsizetype index = 1; index < records.size(); ++index) {
-        const QStringList &record = records.at(index);
-        const auto valueAt = [&record](int column) {
-            return column >= 0 && column < record.size() ? record.at(column).trimmed() : QString();
-        };
-
-        BookInfo info;
-        info.found = true;
-        info.isbn = valueAt(0);
-        info.title = valueAt(1);
-        info.authors = valueAt(2);
-        info.engineSource = valueAt(3);
-        info.coverUrl = valueAt(4);
-        info.publicationDate = valueAt(5);
-        info.publisher = valueAt(6);
-        const QString pageCountText = valueAt(7);
-        bool pageCountValid = true;
-        info.pageCount = pageCountText.isEmpty() ? 0 : pageCountText.toInt(&pageCountValid);
-        if (!pageCountValid || info.pageCount < 0) {
-            ++skippedCount;
-            continue;
-        }
-        if (info.isbn.isEmpty() || info.title.isEmpty()) {
-            ++skippedCount;
-            continue;
-        }
-
+    for (const BookInfo &info : importedBooks) {
         const BookInfo existing = m_dbManager->getBookByIsbn(info.isbn);
         if (existing.found && existing.coverUrl != info.coverUrl) {
             CoverCache::removeImage(info.isbn);
