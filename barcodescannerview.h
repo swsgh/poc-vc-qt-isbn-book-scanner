@@ -3,12 +3,8 @@
 
 #include <QWidget>
 #include <QImage>
-#include <memory>
 
-class QCamera;
-class QMediaCaptureSession;
-class QVideoSink;
-class QVideoFrame;
+class BarcodeScannerController;
 
 class BarcodeScannerView : public QWidget
 {
@@ -28,15 +24,11 @@ protected:
     void paintEvent(QPaintEvent *event) override;
 
 private slots:
-    void processVideoFrame(const QVideoFrame &frame);
+    void updateFrame(const QImage &image);
 
 private:
-    std::unique_ptr<QCamera> m_camera;
-    std::unique_ptr<QMediaCaptureSession> m_captureSession;
-    std::unique_ptr<QVideoSink> m_videoSink;
-
+    BarcodeScannerController *m_controller;
     QImage m_currentFrame;
-    bool m_isProcessingFrame;
 };
 
 #endif // BARCODESCANNERVIEW_H
