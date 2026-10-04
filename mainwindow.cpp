@@ -150,7 +150,7 @@ void MainWindow::setupUi()
     mainVerticalLayout->setSpacing(10);
 
     auto *controlsLayout = new QHBoxLayout;
-    m_cameraToggleButton = new QPushButton("📷 Open Scanner Suite", centralWidget);
+    m_cameraToggleButton = new QPushButton("📷 Show Camera Preview", centralWidget);
     m_cameraToggleButton->setObjectName("cameraToggleButton");
     m_cameraToggleButton->setToolTip("Open the scanner view and start camera capture");
     m_cameraToggleButton->setAccessibleName("Camera preview toggle");
@@ -208,7 +208,7 @@ void MainWindow::setupUi()
     m_statusLabel->setAlignment(Qt::AlignCenter);
     m_statusLabel->setFrameShape(QFrame::NoFrame);
     m_statusLabel->setAutoFillBackground(false);
-    applyStatusStyle("Center an ISBN barcode to log a book");
+    applyStatusStyle("Center an ISBN barcode to add a book");
     scannerLayout->addWidget(m_statusLabel, 0);
 
     m_scannerPanel->hide();
@@ -470,10 +470,10 @@ void MainWindow::toggleCameraView()
 
     if (isVisible) {
         m_scannerView->stopCapture();
-        m_cameraToggleButton->setText("📷 Open Scanner Suite");
+        m_cameraToggleButton->setText("📷 Show Camera Preview");
         m_cameraToggleButton->setToolTip("Open the scanner view and start camera capture");
     } else {
-        m_cameraToggleButton->setText("🙈 Hide Scanner Suite");
+        m_cameraToggleButton->setText("🙈 Hide Camera Preview");
         m_cameraToggleButton->setToolTip("Hide the scanner view and stop camera capture");
         m_scannerView->startCapture();
     }

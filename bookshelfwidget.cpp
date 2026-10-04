@@ -19,7 +19,7 @@ BookshelfWidget::BookshelfWidget(QWidget *parent) : QWidget(parent)
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(5, 5, 5, 5);
 
-    m_titleLabel = new QLabel("Saved Books Shelf Grid", this);
+    m_titleLabel = new QLabel("Bookshelf", this);
     m_titleLabel->setStyleSheet(
         QString("font-size: 14px; font-weight: bold; color: %1; padding: 2px;")
             .arg(textColor));
