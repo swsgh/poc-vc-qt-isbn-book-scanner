@@ -18,6 +18,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Qml
     Quick
     QuickControls2
+    QuickDialogs2
     QuickWidgets
     Sql
     Network
@@ -52,8 +53,6 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     main.cpp
     mainwindow.cpp
     mainwindow.h
-    synccredentialsdialog.h
-    synccredentialsdialog.cpp
     barcodescannercontroller.h
     barcodescannercontroller.cpp
     bookmetadataprovider.h
@@ -95,6 +94,8 @@ qt_add_qml_module(ISBNBookScanner
         ScannerPreview.qml
         ScannerToggle.qml
         ScannerControls.qml
+        SettingsMenu.qml
+        AccountDialog.qml
 )
 
 # 4. Target Link Libraries & Platform Setup
@@ -105,6 +106,7 @@ target_link_libraries(ISBNBookScanner PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
+    Qt6::QuickDialogs2
     Qt6::QuickWidgets
     Qt6::Sql
     Qt6::Network

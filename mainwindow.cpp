@@ -7,7 +7,6 @@
 #include "bookcollectionmodel.h"
 #include "covercache.h"
 #include "bookcsv.h"
-#include "synccredentialsdialog.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -17,16 +16,12 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QLineEdit>
-#include <QMenu>
-#include <QAction>
 #include <QApplication>
 #include <QEvent>
 #include <QPalette>
 #include <QSettings>
-#include <QToolButton>
 #include <QStatusBar>
 #include <QSortFilterProxyModel>
-#include <QFileDialog>
 #include <QQmlError>
 #include <QQmlContext>
 #include <QQuickWidget>
@@ -115,11 +110,23 @@ void MainWindow::setupUi()
         "QLabel { background-color: #8a929c; border-radius: 6px; }");
     controlsLayout->addWidget(m_syncConnectionIndicator, 0, Qt::AlignVCenter);
 
-    m_settingsButton = new QToolButton(centralWidget);
-    m_settingsButton->setObjectName("settingsButton");
-    m_settingsButton->setText(QString::fromUtf8("⚙"));
-    m_settingsButton->setPopupMode(QToolButton::InstantPopup);
-    controlsLayout->addWidget(m_settingsButton);
+    m_settingsQuickWidget = new QQuickWidget(centralWidget);
+    m_settingsQuickWidget->setFixedSize(42, 36);
+    m_settingsQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    connect(m_settingsQuickWidget, &QQuickWidget::statusChanged, this,
+            [this](QQuickWidget::Status status) {
+                if (status == QQuickWidget::Error) {
+                    for (const QQmlError &error : m_settingsQuickWidget->errors()) {
+                        qWarning().noquote() << error.toString();
+                    }
+                } else if (status == QQuickWidget::Ready && m_settingsQuickWidget->rootObject()) {
+                    m_settingsQuickWidget->rootObject()->setProperty(
+                        "mainWindow", QVariant::fromValue(static_cast<QObject *>(this)));
+                }
+            });
+    m_settingsQuickWidget->setSource(
+        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/SettingsMenu.qml")));
+    controlsLayout->addWidget(m_settingsQuickWidget);
     mainVerticalLayout->addLayout(controlsLayout);
 
     m_scannerPanel = new QWidget(centralWidget);
@@ -213,66 +220,61 @@ void MainWindow::setupUi()
     setWindowTitle("ISBN Book Scanner");
     resize(950, 900);
 
-    auto *syncMenu = new QMenu(this);
-    m_loginAction = syncMenu->addAction("Log In to Sync...");
-    m_syncAction = syncMenu->addAction("Sync Now");
-    m_logoutAction = syncMenu->addAction("Log Out of Sync");
-    m_loginAction->setEnabled(true);
-    m_syncAction->setEnabled(false);
-    m_logoutAction->setEnabled(false);
-    syncMenu->addSeparator();
-    m_registerAction = syncMenu->addAction("Register Sync Account...");
-    syncMenu->addSeparator();
-    QAction *importCsvAction = syncMenu->addAction("Import CSV...");
-    QAction *exportCsvAction = syncMenu->addAction("Export CSV...");
-    m_settingsButton->setMenu(syncMenu);
-
-    connect(m_registerAction, &QAction::triggered, this, &MainWindow::promptRegisterAccount);
-    connect(m_loginAction, &QAction::triggered, this, &MainWindow::promptLoginAccount);
-    connect(m_syncAction, &QAction::triggered, this, &MainWindow::syncNow);
-    connect(m_logoutAction, &QAction::triggered, this, &MainWindow::logoutSync);
-    connect(importCsvAction, &QAction::triggered, this, &MainWindow::importBooksCsv);
-    connect(exportCsvAction, &QAction::triggered, this, &MainWindow::exportBooksCsv);
 }
 
-void MainWindow::exportBooksCsv()
+QVariantMap MainWindow::exportBooksCsv(const QUrl &fileUrl)
 {
+    QVariantMap result;
     const QList<BookInfo> books = m_dbManager->getAllSavedBooks();
     if (books.isEmpty()) {
-        QMessageBox::information(this, "Export CSV", "There are no books to export.");
-        return;
+        result.insert("title", "Export CSV");
+        result.insert("message", "There are no books to export.");
+        result.insert("success", false);
+        return result;
     }
 
-    QString filePath = QFileDialog::getSaveFileName(
-        this, "Export Books to CSV",
-        QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-        "CSV files (*.csv)");
-    if (filePath.isEmpty()) return;
+    QString filePath = fileUrl.toLocalFile();
+    if (filePath.isEmpty()) {
+        result.insert("title", "Export CSV Failed");
+        result.insert("message", "Choose a local file to export.");
+        result.insert("success", false);
+        return result;
+    }
     if (!filePath.endsWith(".csv", Qt::CaseInsensitive)) filePath += ".csv";
 
     QString error;
     if (!BookCsv::writeFile(filePath, books, error)) {
-        QMessageBox::critical(this, "Export CSV Failed", error);
-        return;
+        result.insert("title", "Export CSV Failed");
+        result.insert("message", error);
+        result.insert("success", false);
+        return result;
     }
-    QMessageBox::information(this, "Export CSV",
-                             QString("Exported %1 books to:\n%2").arg(books.size()).arg(filePath));
+    result.insert("title", "Export CSV");
+    result.insert("message", QString("Exported %1 books to:\n%2")
+                                  .arg(books.size()).arg(filePath));
+    result.insert("success", true);
+    return result;
 }
 
-void MainWindow::importBooksCsv()
+QVariantMap MainWindow::importBooksCsv(const QUrl &fileUrl)
 {
-    const QString filePath = QFileDialog::getOpenFileName(
-        this, "Import Books from CSV",
-        QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-        "CSV files (*.csv)");
-    if (filePath.isEmpty()) return;
+    QVariantMap result;
+    const QString filePath = fileUrl.toLocalFile();
+    if (filePath.isEmpty()) {
+        result.insert("title", "Import CSV Failed");
+        result.insert("message", "Choose a local CSV file to import.");
+        result.insert("success", false);
+        return result;
+    }
 
     QList<BookInfo> importedBooks;
     int skippedCount = 0;
     QString error;
     if (!BookCsv::readFile(filePath, importedBooks, skippedCount, error)) {
-        QMessageBox::warning(this, "Import CSV Failed", error);
-        return;
+        result.insert("title", "Import CSV Failed");
+        result.insert("message", error);
+        result.insert("success", false);
+        return result;
     }
 
     int importedCount = 0;
@@ -296,10 +298,11 @@ void MainWindow::importBooksCsv()
     if (importedCount > 0 && m_syncManager->isAuthenticated()) {
         m_syncCoordinator->flushQueue();
     }
-    QMessageBox::information(
-        this, "Import CSV",
-        QString("Imported %1 books; skipped %2 invalid rows.")
-            .arg(importedCount).arg(skippedCount));
+    result.insert("title", "Import CSV");
+    result.insert("message", QString("Imported %1 books; skipped %2 invalid rows.")
+                                  .arg(importedCount).arg(skippedCount));
+    result.insert("success", true);
+    return result;
 }
 
 void MainWindow::applyPaletteStyles(const QPalette &palette)
@@ -328,11 +331,6 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
         "QPushButton { background-color: %5; color: %6; border: 1px solid %3; "
         "border-radius: 6px; padding: 10px; font-weight: bold; }"
         "QPushButton:hover { background-color: %7; color: %8; }"
-        "QMenu { background-color: %4; border: 1px solid %3; border-radius: 6px; padding: 5px; }"
-        "QMenu::item { padding: 6px 25px 6px 20px; color: %2; }"
-        "QMenu::item:selected { background-color: %7; color: %8; border-radius: 4px; }"
-        "QMenu::item:disabled { color: %9; }"
-        "QMenu::item:disabled:selected { background-color: %4; color: %9; }"
         "QLineEdit { background-color: %4; border: 1px solid %3; border-radius: 6px; "
         "padding: 10px; color: %2; font-size: 14px; }"
         "QLineEdit:focus { border: 1px solid %7; }"
@@ -341,12 +339,6 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
                buttonColor, buttonText, highlightColor, highlightedText)
            .arg(disabledTextColor));
 
-    m_settingsButton->setStyleSheet(QString(
-        "QToolButton { background-color: %1; color: %2; border: 1px solid %3; "
-        "border-radius: 4px; font-size: 20px; }"
-        "QToolButton::menu-indicator { image: none; width: 0px; }"
-        "QToolButton:hover { background-color: %4; color: %5; }")
-        .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
     applyStatusStyle(m_scannerStatusText, m_statusTextColor);
     m_applyingPalette = false;
 }
@@ -472,34 +464,45 @@ void MainWindow::updateSyncConnectionIndicator(bool connected)
     m_syncConnectionIndicator->setAccessibleDescription(description);
 }
 
-void MainWindow::promptRegisterAccount()
+QString MainWindow::submitSyncCredentials(bool registering, const QString &serverUrl,
+                                          const QString &username, const QString &password,
+                                          const QString &confirmation, bool rememberUsername)
 {
-    SyncCredentialsDialog dialog(true, this);
-    if (dialog.exec() != QDialog::Accepted) return;
-    const QString serverUrl = dialog.serverUrl();
-    const QString username = dialog.username();
-    const QString password = dialog.password();
+    QString normalizedUrl = serverUrl.trimmed();
+    while (normalizedUrl.endsWith('/')) normalizedUrl.chop(1);
+    const QUrl parsedUrl(normalizedUrl);
+    const QString scheme = parsedUrl.scheme().toLower();
+    if (!parsedUrl.isValid() || parsedUrl.host().isEmpty()
+        || (scheme != "http" && scheme != "https")) {
+        return "Enter an absolute http:// or https:// server URL.";
+    }
+    if (username.trimmed().isEmpty() || password.isEmpty()) {
+        return "Enter a username and password.";
+    }
+    if (registering && password != confirmation) {
+        return "The passwords do not match.";
+    }
+
+    QSettings settings;
+    settings.setValue("sync/server_url", normalizedUrl);
+    if (!registering) {
+        if (rememberUsername) {
+            settings.setValue("sync/username", username.trimmed());
+        } else {
+            settings.remove("sync/username");
+        }
+    }
 
     m_syncManager->setSyncCheckpoint(
-        m_dbManager->getSyncCheckpoint(username),
-        m_dbManager->hasSyncCheckpoint(username));
-    m_syncManager->setServerUrl(serverUrl);
-    m_syncManager->registerAccount(username, password);
-}
-
-void MainWindow::promptLoginAccount()
-{
-    SyncCredentialsDialog dialog(false, this);
-    if (dialog.exec() != QDialog::Accepted) return;
-    const QString serverUrl = dialog.serverUrl();
-    const QString username = dialog.username();
-    const QString password = dialog.password();
-
-    m_syncManager->setSyncCheckpoint(
-        m_dbManager->getSyncCheckpoint(username),
-        m_dbManager->hasSyncCheckpoint(username));
-    m_syncManager->setServerUrl(serverUrl);
-    m_syncManager->loginAccount(username, password);
+        m_dbManager->getSyncCheckpoint(username.trimmed()),
+        m_dbManager->hasSyncCheckpoint(username.trimmed()));
+    m_syncManager->setServerUrl(normalizedUrl);
+    if (registering) {
+        m_syncManager->registerAccount(username.trimmed(), password);
+    } else {
+        m_syncManager->loginAccount(username.trimmed(), password);
+    }
+    return {};
 }
 
 void MainWindow::syncNow()
@@ -524,19 +527,37 @@ void MainWindow::logoutSync()
         "QLabel { background-color: #8a929c; border-radius: 6px; }");
     m_syncConnectionIndicator->setToolTip("Log in to check sync server");
     m_syncConnectionIndicator->setAccessibleDescription("Log in to check sync server");
-    m_registerAction->setEnabled(true);
-    m_loginAction->setEnabled(true);
-    m_syncAction->setEnabled(false);
-    m_logoutAction->setEnabled(false);
+    emit syncStateChanged();
     statusBar()->showMessage("Signed out of sync.", 5000);
 }
 
 void MainWindow::handleLoginSuccess()
 {
-    m_registerAction->setEnabled(false);
-    m_loginAction->setEnabled(false);
-    m_syncAction->setEnabled(true);
-    m_logoutAction->setEnabled(true);
+    emit syncStateChanged();
+}
+
+QString MainWindow::defaultSyncServerUrl() const
+{
+    const QString configuredUrl = qEnvironmentVariable("BOOKSHELF_SYNC_URL");
+    if (!configuredUrl.isEmpty()) {
+        return configuredUrl;
+    }
+    return QSettings().value("sync/server_url", "http://127.0.0.1:8000").toString();
+}
+
+QString MainWindow::rememberedSyncUsername() const
+{
+    return QSettings().value("sync/username").toString();
+}
+
+bool MainWindow::shouldRememberSyncUsername() const
+{
+    return !rememberedSyncUsername().isEmpty();
+}
+
+bool MainWindow::syncAuthenticated() const
+{
+    return m_syncManager && m_syncManager->isAuthenticated();
 }
 
 void MainWindow::populateBookshelf()

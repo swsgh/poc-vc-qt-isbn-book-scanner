@@ -13,12 +13,10 @@ class BookSyncCoordinator;
 class BookCollectionModel;
 class QSortFilterProxyModel;
 class QQuickWidget;
-class QAction;
 class QEvent;
 class QLabel;
 class QLineEdit;
 class QPalette;
-class QToolButton;
 
 class MainWindow : public QMainWindow
 {
@@ -33,6 +31,17 @@ public:
     Q_INVOKABLE void removeSelectedBook();
     Q_INVOKABLE bool submitManualIsbn(const QString &input);
     Q_INVOKABLE void toggleScannerPanel();
+    Q_INVOKABLE void syncNow();
+    Q_INVOKABLE void logoutSync();
+    Q_INVOKABLE QString submitSyncCredentials(bool registering, const QString &serverUrl,
+                                              const QString &username, const QString &password,
+                                              const QString &confirmation,
+                                              bool rememberUsername);
+    Q_INVOKABLE QVariantMap importBooksCsv(const QUrl &fileUrl);
+    Q_INVOKABLE QVariantMap exportBooksCsv(const QUrl &fileUrl);
+    Q_INVOKABLE QString defaultSyncServerUrl() const;
+    Q_INVOKABLE QString rememberedSyncUsername() const;
+    Q_INVOKABLE bool shouldRememberSyncUsername() const;
 
     Q_PROPERTY(bool selectedBookVisible READ selectedBookVisible NOTIFY selectedBookChanged)
     Q_PROPERTY(QString selectedBookTitle READ selectedBookTitle NOTIFY selectedBookChanged)
@@ -43,6 +52,7 @@ public:
     Q_PROPERTY(bool scannerVisible READ scannerVisible NOTIFY scannerVisibilityChanged)
     Q_PROPERTY(QString scannerStatusText READ scannerStatusText NOTIFY scannerStatusChanged)
     Q_PROPERTY(QString scannerStatusColor READ scannerStatusColor NOTIFY scannerStatusChanged)
+    Q_PROPERTY(bool syncAuthenticated READ syncAuthenticated NOTIFY syncStateChanged)
 
     bool selectedBookVisible() const;
     QString selectedBookTitle() const;
@@ -53,23 +63,19 @@ public:
     bool scannerVisible() const;
     QString scannerStatusText() const;
     QString scannerStatusColor() const;
+    bool syncAuthenticated() const;
 
 signals:
     void selectedBookChanged();
     void scannerVisibilityChanged();
     void scannerStatusChanged();
+    void syncStateChanged();
 
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
     void displayBookDetails(const BookInfo &info);
     void removeBookRecord(const QString &isbn);
     void onSearchTextChanged(const QString &text);
-    void promptRegisterAccount();
-    void promptLoginAccount();
-    void syncNow();
-    void logoutSync();
-    void importBooksCsv();
-    void exportBooksCsv();
 
 protected:
     void changeEvent(QEvent *event) override;
@@ -95,15 +101,11 @@ private:
     QSortFilterProxyModel* m_bookFilterModel = nullptr;
     QQuickWidget* m_bookshelfQuickWidget = nullptr;
     QQuickWidget* m_bookDetailsQuickWidget = nullptr;
+    QQuickWidget* m_settingsQuickWidget = nullptr;
     BookInfo m_selectedBook;
     QWidget* m_scannerPanel = nullptr;
     QLabel* m_syncConnectionIndicator = nullptr;
     QLineEdit* m_searchBar = nullptr;
-    QToolButton* m_settingsButton = nullptr;
-    QAction* m_registerAction = nullptr;
-    QAction* m_loginAction = nullptr;
-    QAction* m_syncAction = nullptr;
-    QAction* m_logoutAction = nullptr;
     QString m_scannerStatusText = "Center an ISBN barcode to add a book";
     QString m_statusTextColor;
     bool m_applyingPalette = false;
