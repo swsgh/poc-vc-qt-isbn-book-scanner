@@ -1,5 +1,7 @@
 #include "bookshelfwidget.h"
+#include "bookcollectionmodel.h"
 #include "covercache.h"
+#include <QAbstractItemModel>
 #include <QGridLayout>
 #include <QVBoxLayout>
 #include <QScrollArea>
@@ -64,6 +66,99 @@ void BookshelfWidget::applyPalette(const QPalette &palette)
         }
     }
 }
+
+void BookshelfWidget::setModel(QAbstractItemModel *model)
+{
+    if (m_model == model) {
+        return;
+    }
+    if (m_model) {
+        disconnect(m_model, nullptr, this, nullptr);
+    }
+
+    m_model = model;
+    if (m_model) {
+        connect(m_model, &QAbstractItemModel::rowsInserted, this,
+                [this](const QModelIndex &, int first, int last) {
+                    insertCards(first, last);
+                });
+        connect(m_model, &QAbstractItemModel::rowsRemoved, this,
+                [this](const QModelIndex &, int first, int last) {
+                    removeCards(first, last);
+                });
+        connect(m_model, &QAbstractItemModel::dataChanged, this,
+                [this](const QModelIndex &first, const QModelIndex &last,
+                       const QList<int> &) {
+                    updateCards(first, last);
+                });
+        connect(m_model, &QAbstractItemModel::modelReset,
+                this, &BookshelfWidget::rebuildCards);
+        connect(m_model, &QAbstractItemModel::layoutChanged,
+                this, &BookshelfWidget::rebuildCards);
+        connect(m_model, &QAbstractItemModel::rowsMoved,
+                this, [this]() { rebuildCards(); });
+    }
+
+    rebuildCards();
+}
+
+void BookshelfWidget::insertCards(int first, int last)
+{
+    if (!m_model) {
+        return;
+    }
+    for (int row = first; row <= last; ++row) {
+        m_bookCards.insert(row, createBookCard(bookForRow(row)));
+    }
+    rearrangeGrid();
+}
+
+void BookshelfWidget::removeCards(int first, int last)
+{
+    for (int row = last; row >= first && row < m_bookCards.size(); --row) {
+        m_bookCards.takeAt(row)->deleteLater();
+    }
+    rearrangeGrid();
+}
+
+void BookshelfWidget::updateCards(const QModelIndex &first, const QModelIndex &last)
+{
+    if (!m_model) {
+        return;
+    }
+    const int lastRow = qMin(last.row(), m_bookCards.size() - 1);
+    for (int row = qMax(0, first.row()); row <= lastRow; ++row) {
+        const BookInfo info = bookForRow(row);
+        QWidget *card = m_bookCards.at(row);
+        card->setProperty("bookData", QVariant::fromValue(info));
+        updateBookCardCover(card, info);
+    }
+}
+
+void BookshelfWidget::rebuildCards()
+{
+    for (QWidget *card : m_bookCards) {
+        card->deleteLater();
+    }
+    m_bookCards.clear();
+
+    if (m_model) {
+        for (int row = 0; row < m_model->rowCount(); ++row) {
+            m_bookCards.append(createBookCard(bookForRow(row)));
+        }
+    }
+    rearrangeGrid();
+}
+
+BookInfo BookshelfWidget::bookForRow(int row) const
+{
+    if (!m_model || row < 0 || row >= m_model->rowCount()) {
+        return {};
+    }
+    return m_model->data(m_model->index(row, 0), BookCollectionModel::BookInfoRole)
+        .value<BookInfo>();
+}
+
 void BookshelfWidget::updateBookCardCover(QWidget *card, const BookInfo &info)
 {
     QLabel *coverLabel = card->findChild<QLabel*>("coverLabel");
@@ -104,33 +199,6 @@ QWidget *BookshelfWidget::createBookCard(const BookInfo &info)
 
     updateBookCardCover(bookCard, info);
     return bookCard;
-}
-
-void BookshelfWidget::addBookToShelf(const BookInfo &info, bool prepend)
-{
-    QWidget *existingCard = m_scrollContainer->findChild<QWidget*>("card_" + info.isbn);
-
-    if (existingCard) {
-        existingCard->setProperty("bookData", QVariant::fromValue(info));
-        updateBookCardCover(existingCard, info);
-
-        if (prepend) {
-            m_bookCards.removeOne(existingCard);
-            m_bookCards.prepend(existingCard);
-            rearrangeGrid();
-        }
-        return;
-    }
-
-    QWidget *bookCard = createBookCard(info);
-
-    if (prepend) {
-        m_bookCards.prepend(bookCard);
-    } else {
-        m_bookCards.append(bookCard);
-    }
-
-    rearrangeGrid();
 }
 
 // NEW: Event Filter logic engine that catches click releases targeting any active book card
@@ -210,55 +278,3 @@ QPixmap BookshelfWidget::generatePlaceholderCover(const QString &title)
     return pixmap;
 }
 
-void BookshelfWidget::removeBookFromShelf(const QString &isbn)
-{
-    // Find the specific book card widget container by its object name format
-    QWidget *cardToErase = m_scrollContainer->findChild<QWidget*>("card_" + isbn);
-
-    if (cardToErase) {
-        // Remove it from our structural list tracking array
-        m_bookCards.removeOne(cardToErase);
-
-        // Safely schedule the widget object and its child labels for deletion
-        cardToErase->deleteLater();
-
-        // Force layout engine recalculation and adjust wrapping columns
-        rearrangeGrid();
-    }
-}
-
-void BookshelfWidget::clearShelf()
-{
-    for (QWidget* card : m_bookCards) {
-        card->deleteLater();
-    }
-    m_bookCards.clear();
-    rearrangeGrid();
-}
-
-void BookshelfWidget::filterBooks(const QString &searchText)
-{
-    QString cleanSearch = searchText.trimmed().toLower();
-
-    for (QWidget* card : m_bookCards) {
-        // Extract the stored BookInfo variant metadata layout from each card
-        QVariant prop = card->property("bookData");
-        if (prop.isValid() && prop.canConvert<BookInfo>()) {
-            BookInfo info = prop.value<BookInfo>();
-
-            // Match against Title, Author, or ISBN
-            bool matchesTitle = info.title.toLower().contains(cleanSearch);
-            bool matchesAuthor = info.authors.toLower().contains(cleanSearch);
-            bool matchesIsbn = info.isbn.contains(cleanSearch);
-
-            if (cleanSearch.isEmpty() || matchesTitle || matchesAuthor || matchesIsbn) {
-                card->setVisible(true);
-            } else {
-                card->setVisible(false); // Hide the card if it doesn't match
-            }
-        }
-    }
-
-    // Force layout matrix recalculation so remaining visible cards rearrange cleanly
-    rearrangeGrid();
-}

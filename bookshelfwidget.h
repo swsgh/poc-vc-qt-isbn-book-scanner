@@ -5,6 +5,7 @@
 #include <QList>
 #include "bookinfo.h"
 
+class QAbstractItemModel;
 class QGridLayout;
 class QVBoxLayout;
 class QScrollArea;
@@ -19,10 +20,7 @@ public:
     explicit BookshelfWidget(QWidget *parent = nullptr);
     ~BookshelfWidget() override = default;
 
-    void addBookToShelf(const BookInfo &info, bool prepend = true);
-    void removeBookFromShelf(const QString &isbn);
-    void clearShelf();
-    void filterBooks(const QString &searchText);
+    void setModel(QAbstractItemModel *model);
     void applyPalette(const QPalette &palette);
 
 signals:
@@ -34,6 +32,11 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    void insertCards(int first, int last);
+    void removeCards(int first, int last);
+    void updateCards(const QModelIndex &first, const QModelIndex &last);
+    void rebuildCards();
+    BookInfo bookForRow(int row) const;
     void rearrangeGrid();
     QWidget *createBookCard(const BookInfo &info);
     void updateBookCardCover(QWidget *card, const BookInfo &info);
@@ -42,6 +45,7 @@ private:
     QWidget* m_scrollContainer;
     QGridLayout* m_shelfGridLayout;
     QList<QWidget*> m_bookCards;
+    QAbstractItemModel* m_model = nullptr;
     QScrollArea* m_scrollArea;
     QLabel* m_titleLabel;
 };

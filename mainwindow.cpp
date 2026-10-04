@@ -6,6 +6,7 @@
 #include "bookdetailssidebar.h"
 #include "booksyncmanager.h"
 #include "booksynccoordinator.h"
+#include "bookcollectionmodel.h"
 #include "covercache.h"
 #include "bookcsv.h"
 #include "synccredentialsdialog.h"
@@ -29,6 +30,7 @@
 #include <QToolButton>
 #include <QStatusBar>
 #include <QSizePolicy>
+#include <QSortFilterProxyModel>
 #include <QFileDialog>
 #include <algorithm>
 
@@ -53,6 +55,12 @@ void MainWindow::changeEvent(QEvent *event)
 
 void MainWindow::initializeApplication()
 {
+    m_bookCollectionModel = new BookCollectionModel(this);
+    m_bookFilterModel = new QSortFilterProxyModel(this);
+    m_bookFilterModel->setSourceModel(m_bookCollectionModel);
+    m_bookFilterModel->setFilterRole(BookCollectionModel::SearchTextRole);
+    m_bookFilterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+
     setupUi();
     applyPaletteStyles(QApplication::palette());
     setupDatabase();
@@ -152,6 +160,7 @@ void MainWindow::setupUi()
     bookshelfAreaLayout->setSpacing(8);
 
     m_bookshelfWidget = new BookshelfWidget(this);
+    m_bookshelfWidget->setModel(m_bookFilterModel);
     bookshelfAreaLayout->addWidget(m_bookshelfWidget, 1);
 
     m_searchBar = new QLineEdit(this);
@@ -245,7 +254,7 @@ void MainWindow::importBooksCsv()
             continue;
         }
 
-        m_bookshelfWidget->addBookToShelf(info, true);
+        m_bookCollectionModel->addBook(info, true);
         if (!info.coverUrl.isEmpty() && !CoverCache::contains(info.isbn)) {
             m_metadataProvider->cacheCoverForBook(info.isbn, info.coverUrl);
         }
@@ -400,7 +409,7 @@ void MainWindow::setupConnections()
     connect(m_metadataProvider, &BookMetadataProvider::coverCached, this,
             [this](const QString &isbn) {
                 const BookInfo info = m_dbManager->getBookByIsbn(isbn);
-                if (info.found) m_bookshelfWidget->addBookToShelf(info, false);
+                if (info.found) m_bookCollectionModel->addBook(info, false);
                 m_detailsSidebar->refreshCover(isbn);
             });
 }
@@ -413,10 +422,10 @@ void MainWindow::setupSync()
             this, &MainWindow::updateStatusLabel);
         connect(m_syncCoordinator, &BookSyncCoordinator::collectionBookAdded, this,
             [this](const BookInfo &book, bool prepend) {
-            m_bookshelfWidget->addBookToShelf(book, prepend);
+            m_bookCollectionModel->addBook(book, prepend);
             });
         connect(m_syncCoordinator, &BookSyncCoordinator::collectionBookRemoved, this,
-            [this](const QString &isbn) { m_bookshelfWidget->removeBookFromShelf(isbn); });
+            [this](const QString &isbn) { m_bookCollectionModel->removeBook(isbn); });
         connect(m_syncCoordinator, &BookSyncCoordinator::bookDetailsCloseRequested,
             m_detailsSidebar, &BookDetailsSidebar::closeSidebar);
     connect(m_syncCoordinator, &BookSyncCoordinator::syncSummary, this,
@@ -516,8 +525,8 @@ void MainWindow::handleLoginSuccess()
 void MainWindow::populateBookshelf()
 {
     const QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
+    m_bookCollectionModel->setBooks(historicalBooks);
     for (const BookInfo &book : historicalBooks) {
-        m_bookshelfWidget->addBookToShelf(book, false);
         if (!book.coverUrl.isEmpty() && !CoverCache::contains(book.isbn)) {
             m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl);
         }
@@ -576,5 +585,5 @@ void MainWindow::removeBookRecord(const QString &isbn)
 
 void MainWindow::onSearchTextChanged(const QString &text)
 {
-    m_bookshelfWidget->filterBooks(text);
+    m_bookFilterModel->setFilterFixedString(text.trimmed());
 }

@@ -11,6 +11,8 @@ class BookshelfWidget;
 class BookDetailsSidebar;
 class BookSyncManager;
 class BookSyncCoordinator;
+class BookCollectionModel;
+class QSortFilterProxyModel;
 class QAction;
 class QEvent;
 class QLabel;
@@ -63,6 +65,8 @@ private:
     BookDetailsSidebar* m_detailsSidebar = nullptr;
     BookSyncManager* m_syncManager = nullptr;
     BookSyncCoordinator* m_syncCoordinator = nullptr;
+    BookCollectionModel* m_bookCollectionModel = nullptr;
+    QSortFilterProxyModel* m_bookFilterModel = nullptr;
     QWidget* m_scannerPanel = nullptr;
     QLabel* m_statusLabel = nullptr;
     QLabel* m_syncConnectionIndicator = nullptr;

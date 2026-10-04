@@ -64,6 +64,8 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     googlebooksprovider.cpp
     bookdatabasemanager.h
     bookdatabasemanager.cpp
+    bookcollectionmodel.h
+    bookcollectionmodel.cpp
     bookshelfwidget.h
     bookshelfwidget.cpp
     bookdetailssidebar.h
