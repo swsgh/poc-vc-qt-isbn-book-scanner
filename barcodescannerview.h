@@ -1,7 +1,7 @@
 #ifndef BARCODESCANNERVIEW_H
 #define BARCODESCANNERVIEW_H
 
-#include <QOpenGLWidget>
+#include <QWidget>
 #include <QImage>
 #include <memory>
 
@@ -10,8 +10,7 @@ class QMediaCaptureSession;
 class QVideoSink;
 class QVideoFrame;
 
-// CHANGED: Inherit from QOpenGLWidget to enforce GPU-accelerated rendering on Android
-class BarcodeScannerView : public QOpenGLWidget
+class BarcodeScannerView : public QWidget
 {
     Q_OBJECT
 public:

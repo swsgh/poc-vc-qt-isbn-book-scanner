@@ -19,7 +19,6 @@ find_package(Qt6 REQUIRED COMPONENTS
     Network
     Multimedia
     MultimediaWidgets
-    OpenGLWidgets
 )
 
 # 2. Configure ZXing-C++ Subdirectory Flags (Scoped Dependencies)
@@ -77,7 +76,6 @@ target_link_libraries(ISBNBookScanner PRIVATE
     Qt6::Network
     Qt6::Multimedia
     Qt6::MultimediaWidgets
-    Qt6::OpenGLWidgets
     ZXing::ZXing
 )
 

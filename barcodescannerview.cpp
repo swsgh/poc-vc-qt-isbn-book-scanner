@@ -19,7 +19,7 @@
 #include <BarcodeFormat.h>
 
 BarcodeScannerView::BarcodeScannerView(QWidget *parent)
-    : QOpenGLWidget(parent)
+    : QWidget(parent)
     , m_isProcessingFrame(false)
 {
     setAttribute(Qt::WA_OpaquePaintEvent);
