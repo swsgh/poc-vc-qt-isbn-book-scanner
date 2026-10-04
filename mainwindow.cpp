@@ -20,6 +20,7 @@
 #include <QAction>
 #include <QPushButton>
 #include <QToolButton>
+#include <QStatusBar>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -65,6 +66,7 @@ void MainWindow::setupUi()
     m_settingsButton->setStyleSheet(
         "QToolButton { background-color: #1e1e1e; border: 1px solid #3a3a3a; "
         "border-radius: 4px; font-size: 20px; }"
+        "QToolButton::menu-indicator { image: none; width: 0px; }"
         "QToolButton:hover { border-color: #3498db; }");
     controlsLayout->addWidget(m_settingsButton);
     mainVerticalLayout->addLayout(controlsLayout);
@@ -134,12 +136,16 @@ void MainWindow::setupUi()
     m_logoutAction = syncMenu->addAction("Log out");
     m_syncAction->setEnabled(false);
     m_logoutAction->setEnabled(false);
+    syncMenu->addSeparator();
+    m_clearLibraryAction = syncMenu->addAction("Clear Library Database...");
     m_settingsButton->setMenu(syncMenu);
 
     connect(m_registerAction, &QAction::triggered, this, &MainWindow::promptRegisterAccount);
     connect(m_loginAction, &QAction::triggered, this, &MainWindow::promptLoginAccount);
     connect(m_syncAction, &QAction::triggered, this, &MainWindow::syncNow);
     connect(m_logoutAction, &QAction::triggered, this, &MainWindow::logoutSync);
+    connect(m_clearLibraryAction, &QAction::triggered,
+            this, &MainWindow::clearLibraryDatabase);
 }
 
 void MainWindow::toggleCameraView()
@@ -157,6 +163,29 @@ void MainWindow::toggleCameraView()
         m_cameraToggleButton->setToolTip("Hide the camera preview and stop capture");
         m_scannerView->startCapture();
     }
+}
+
+void MainWindow::clearLibraryDatabase()
+{
+    const auto confirmation = QMessageBox::question(
+        this,
+        "Clear Library Database",
+        "Delete all books from this library? Pending server deletions will be synchronized when connected.",
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    if (confirmation != QMessageBox::Yes) return;
+
+    if (!m_dbManager->clearBooksAndQueueDeletes()) return;
+
+    m_bookshelfWidget->clearShelf();
+    m_detailsSidebar->closeSidebar();
+    m_searchBar->clear();
+
+    if (m_syncManager->isAuthenticated()) {
+        handleSyncQueueFlush();
+    }
+
+    statusBar()->showMessage("Library cleared; pending deletions are queued for synchronization.", 8000);
 }
 
 void MainWindow::setupDatabase()

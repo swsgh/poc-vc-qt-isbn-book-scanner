@@ -186,10 +186,53 @@ bool BookDatabaseManager::deleteBookRecord(const QString &isbn)
     return query.numRowsAffected() > 0;
 }
 
-void BookDatabaseManager::queueSyncAction(const QString &isbn, const QString &actionType)
+bool BookDatabaseManager::clearBooksAndQueueDeletes()
+{
+    QSqlDatabase database = QSqlDatabase::database();
+    if (!database.transaction()) {
+        emit databaseError("Failed to begin library clear transaction: " + database.lastError().text());
+        return false;
+    }
+
+    QSqlQuery selectQuery("SELECT isbn FROM books");
+    if (!selectQuery.exec()) {
+        database.rollback();
+        emit databaseError("Failed to list books for deletion: " + selectQuery.lastError().text());
+        return false;
+    }
+
+    QStringList isbns;
+    while (selectQuery.next()) {
+        isbns.append(selectQuery.value(0).toString());
+    }
+    selectQuery.finish();
+
+    for (const QString &isbn : isbns) {
+        if (!queueSyncAction(isbn, "DELETE")) {
+            database.rollback();
+            return false;
+        }
+    }
+
+    QSqlQuery clearQuery("DELETE FROM books");
+    if (!clearQuery.exec()) {
+        database.rollback();
+        emit databaseError("Failed to clear local books: " + clearQuery.lastError().text());
+        return false;
+    }
+
+    if (!database.commit()) {
+        emit databaseError("Failed to commit library clear transaction: " + database.lastError().text());
+        database.rollback();
+        return false;
+    }
+    return true;
+}
+
+bool BookDatabaseManager::queueSyncAction(const QString &isbn, const QString &actionType)
 {
     if (isbn.isEmpty()) {
-        return;
+        return false;
     }
 
     QSqlQuery clearConflictingAction;
@@ -200,7 +243,7 @@ void BookDatabaseManager::queueSyncAction(const QString &isbn, const QString &ac
     if (!clearConflictingAction.exec()) {
         emit databaseError("Failed to replace queued sync action: "
                            + clearConflictingAction.lastError().text());
-        return;
+        return false;
     }
 
     QSqlQuery query;
@@ -210,7 +253,9 @@ void BookDatabaseManager::queueSyncAction(const QString &isbn, const QString &ac
 
     if (!query.exec()) {
         emit databaseError("Failed to queue " + actionType.toLower() + ": " + query.lastError().text());
+        return false;
     }
+    return true;
 }
 
 void BookDatabaseManager::addPendingUpload(const QString &isbn)

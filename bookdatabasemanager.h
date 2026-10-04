@@ -20,6 +20,7 @@ public:
     // Returns true if the ISBN primary key exists in the database table rows
     bool hasBookInLocalDatabase(const QString &isbn);
     bool deleteBookRecord(const QString &isbn);
+    bool clearBooksAndQueueDeletes();
     void addPendingUpload(const QString &isbn);
     void addPendingDelete(const QString &isbn);
     QStringList getPendingUploads();
@@ -31,7 +32,7 @@ public:
     void setSyncCheckpoint(const QString &username, qint64 checkpoint);
 
 private:
-    void queueSyncAction(const QString &isbn, const QString &actionType);
+    bool queueSyncAction(const QString &isbn, const QString &actionType);
     bool writeBookRecord(const BookInfo &info);
 
 public slots:

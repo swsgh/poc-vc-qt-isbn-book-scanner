@@ -34,6 +34,7 @@ private slots:
     void syncNow();
     void logoutSync();
     void toggleCameraView();
+    void clearLibraryDatabase();
     void handleSyncCompleted(const QString &username, qint64 checkpoint,
                              bool initialSync, const QStringList &remoteIsbns);
 
@@ -70,6 +71,7 @@ private:
     QAction* m_loginAction = nullptr;
     QAction* m_syncAction = nullptr;
     QAction* m_logoutAction = nullptr;
+    QAction* m_clearLibraryAction = nullptr;
 };
 
 #endif // MAINWINDOW_H
