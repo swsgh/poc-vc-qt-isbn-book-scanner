@@ -59,6 +59,16 @@ void OpenLibraryProvider::handleReply(QNetworkReply *reply)
     info.isbn = m_activeIsbn;
     info.title = book.value("title").toString("Unknown Title");
     info.engineSource = "Open Library";
+    info.publicationDate = book.value("publish_date").toString();
+    info.pageCount = book.value("number_of_pages").toInt();
+
+    const QJsonArray publishers = book.value("publishers").toArray();
+    if (!publishers.isEmpty()) {
+        const QJsonValue firstPublisher = publishers.first();
+        info.publisher = firstPublisher.isObject()
+            ? firstPublisher.toObject().value("name").toString()
+            : firstPublisher.toString();
+    }
 
     if (book.contains("authors") && book.value("authors").isArray()) {
         QJsonArray authorsArr = book.value("authors").toArray();

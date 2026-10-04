@@ -60,6 +60,9 @@ void GoogleBooksProvider::handleReply(QNetworkReply *reply)
     info.isbn = m_activeIsbn;
     info.title = volumeInfo.value("title").toString("Unknown Title");
     info.engineSource = "Google Books";
+    info.publicationDate = volumeInfo.value("publishedDate").toString();
+    info.publisher = volumeInfo.value("publisher").toString();
+    info.pageCount = volumeInfo.value("pageCount").toInt();
 
     // Extract temporary string assets locally
     QString urlSmall = "";

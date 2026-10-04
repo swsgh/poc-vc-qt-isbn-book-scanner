@@ -11,6 +11,9 @@ struct BookInfo {
     QString authors;
     QString engineSource;
     QString coverUrl;
+    QString publicationDate;
+    QString publisher;
+    int pageCount = 0;
 };
 Q_DECLARE_METATYPE(BookInfo)
 

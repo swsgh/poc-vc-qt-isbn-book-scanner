@@ -34,6 +34,7 @@ private:
     QLabel* m_coverLabel;
     QLabel* m_detailTitleLabel;
     QLabel* m_detailAuthorLabel;
+    QLabel* m_metadataLabel;
     QLabel* m_detailIsbnLabel;
     QPushButton* m_deleteButton; // NEW: Pointer to toggle button context safely
     QPushButton* m_closeButton = nullptr;

@@ -194,6 +194,9 @@ void BookSyncManager::uploadBookToServer(const BookInfo &info)
     metaJson["authors"] = info.authors;
     metaJson["engineSource"] = info.engineSource;
     metaJson["coverUrl"] = info.coverUrl;
+    metaJson["publicationDate"] = info.publicationDate;
+    metaJson["publisher"] = info.publisher;
+    metaJson["pageCount"] = info.pageCount;
     metadataPart.setBody(QJsonDocument(metaJson).toJson(QJsonDocument::Compact));
     multiPart->append(metadataPart);
 
@@ -297,6 +300,9 @@ void BookSyncManager::handleSyncResponse(const QByteArray &jsonResponse)
             info.authors = bookObj.value("authors").toString();
             info.engineSource = bookObj.value("engineSource").toString();
             info.coverUrl = bookObj.value("coverUrl").toString();
+            info.publicationDate = bookObj.value("publicationDate").toString();
+            info.publisher = bookObj.value("publisher").toString();
+            info.pageCount = bookObj.value("pageCount").toInt();
 
             booksToSave.append(info);
         }

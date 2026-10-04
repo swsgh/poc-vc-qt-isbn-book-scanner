@@ -24,7 +24,10 @@ bool BookDatabaseManager::initDatabase(const QString &dbPath)
         "  title TEXT NOT NULL,"
         "  authors TEXT,"
         "  engine_source TEXT,"
-        "  cover_url TEXT"
+        "  cover_url TEXT,"
+        "  publication_date TEXT,"
+        "  publisher TEXT,"
+        "  page_count INTEGER"
         ")";
 
     if (!query.exec(createBooksTableSql)) {
@@ -96,14 +99,18 @@ bool BookDatabaseManager::writeBookRecord(const BookInfo &info)
     QSqlQuery query;
     // Use an INSERT OR REPLACE clause so scanning a book a second time updates its entry
     // instead of throwing a duplicate primary key error constraint
-    query.prepare("INSERT OR REPLACE INTO books (isbn, title, authors, engine_source, cover_url) "
-                  "VALUES (?, ?, ?, ?, ?)");
+    query.prepare("INSERT OR REPLACE INTO books "
+                  "(isbn, title, authors, engine_source, cover_url, publication_date, publisher, page_count) "
+                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 
     query.addBindValue(info.isbn);
     query.addBindValue(info.title);
     query.addBindValue(info.authors);
     query.addBindValue(info.engineSource);
     query.addBindValue(info.coverUrl);
+    query.addBindValue(info.publicationDate);
+    query.addBindValue(info.publisher);
+    query.addBindValue(info.pageCount);
 
     if (!query.exec()) {
         emit databaseError("Failed to save book record: " + query.lastError().text());
@@ -116,7 +123,8 @@ bool BookDatabaseManager::writeBookRecord(const BookInfo &info)
 QList<BookInfo> BookDatabaseManager::getAllSavedBooks()
 {
     QList<BookInfo> bookList;
-    QSqlQuery query("SELECT isbn, title, authors, engine_source, cover_url FROM books ORDER BY isbn DESC");
+    QSqlQuery query("SELECT isbn, title, authors, engine_source, cover_url, publication_date, publisher, page_count "
+                    "FROM books ORDER BY isbn DESC");
 
     while (query.next()) {
         BookInfo info;
@@ -126,6 +134,9 @@ QList<BookInfo> BookDatabaseManager::getAllSavedBooks()
         info.authors = query.value(2).toString();
         info.engineSource = query.value(3).toString();
         info.coverUrl = query.value(4).toString();
+        info.publicationDate = query.value(5).toString();
+        info.publisher = query.value(6).toString();
+        info.pageCount = query.value(7).toInt();
         bookList.append(info);
     }
     return bookList;
@@ -135,7 +146,8 @@ BookInfo BookDatabaseManager::getBookByIsbn(const QString &isbn)
 {
     BookInfo info;
     QSqlQuery query;
-    query.prepare("SELECT isbn, title, authors, engine_source, cover_url FROM books WHERE isbn = ?");
+    query.prepare("SELECT isbn, title, authors, engine_source, cover_url, publication_date, publisher, page_count "
+                  "FROM books WHERE isbn = ?");
     query.addBindValue(isbn);
 
     if (query.exec() && query.next()) {
@@ -145,6 +157,9 @@ BookInfo BookDatabaseManager::getBookByIsbn(const QString &isbn)
         info.authors = query.value(2).toString();
         info.engineSource = query.value(3).toString();
         info.coverUrl = query.value(4).toString();
+        info.publicationDate = query.value(5).toString();
+        info.publisher = query.value(6).toString();
+        info.pageCount = query.value(7).toInt();
     }
     return info;
 }

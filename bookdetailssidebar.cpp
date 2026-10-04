@@ -55,6 +55,14 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
         Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
     m_detailAuthorLabel->setStyleSheet("border: none; font-style: italic;");
 
+    m_metadataLabel = new QLabel("", m_container);
+    m_metadataLabel->setWordWrap(true);
+    m_metadataLabel->setAlignment(Qt::AlignCenter);
+    m_metadataLabel->setTextInteractionFlags(
+        Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
+    m_metadataLabel->setStyleSheet("border: none;");
+    m_metadataLabel->hide();
+
     m_detailIsbnLabel = new QLabel("", m_container);
     m_detailIsbnLabel->setAlignment(Qt::AlignCenter);
     m_detailIsbnLabel->setTextInteractionFlags(
@@ -64,6 +72,7 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
 
     containerLayout->addWidget(m_detailTitleLabel);
     containerLayout->addWidget(m_detailAuthorLabel);
+    containerLayout->addWidget(m_metadataLabel);
     containerLayout->addWidget(m_detailIsbnLabel);
 
     containerLayout->addStretch();
@@ -136,6 +145,7 @@ void BookDetailsSidebar::clearDetailsText()
 {
     m_detailTitleLabel->setText("Select a book to inspect details");
     m_detailAuthorLabel->clear();
+    m_metadataLabel->clear();
     m_detailIsbnLabel->clear();
 }
 
@@ -148,6 +158,18 @@ void BookDetailsSidebar::updateDetails(const BookInfo &info)
 
     m_detailTitleLabel->setText(info.title);
     m_detailAuthorLabel->setText(info.authors.isEmpty() ? "Unknown" : info.authors);
+    QStringList metadata;
+    if (!info.publicationDate.isEmpty()) {
+        metadata.append("First published: " + info.publicationDate);
+    }
+    if (!info.publisher.isEmpty()) {
+        metadata.append("Publisher: " + info.publisher);
+    }
+    if (info.pageCount > 0) {
+        metadata.append(QString("Pages: %1").arg(info.pageCount));
+    }
+    m_metadataLabel->setText(metadata.join('\n'));
+    m_metadataLabel->setVisible(!metadata.isEmpty());
     m_detailIsbnLabel->setText("ISBN: " + info.isbn);
 }
 

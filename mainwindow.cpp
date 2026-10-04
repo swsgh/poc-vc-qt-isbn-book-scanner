@@ -290,13 +290,16 @@ void MainWindow::exportBooksCsv()
     QTextStream stream(&file);
     stream.setEncoding(QStringConverter::Utf8);
     stream.setGenerateByteOrderMark(true);
-    stream << "ISBN,Title,Author,Engine Source,Cover URL\r\n";
+    stream << "ISBN,Title,Author,Engine Source,Cover URL,First Publication Date,Publisher,Page Count\r\n";
     for (const BookInfo &book : books) {
         stream << escapeCsvField(book.isbn) << ','
                << escapeCsvField(book.title) << ','
                << escapeCsvField(book.authors) << ','
                << escapeCsvField(book.engineSource) << ','
-               << escapeCsvField(book.coverUrl) << "\r\n";
+               << escapeCsvField(book.coverUrl) << ','
+               << escapeCsvField(book.publicationDate) << ','
+               << escapeCsvField(book.publisher) << ','
+               << book.pageCount << "\r\n";
     }
     stream.flush();
     if (stream.status() != QTextStream::Ok) {
@@ -333,15 +336,14 @@ void MainWindow::importBooksCsv()
     if (!headers.isEmpty() && headers.first().startsWith(QChar::ByteOrderMark)) {
         headers[0].remove(0, 1);
     }
-    for (QString &header : headers) header = header.trimmed().toLower();
-    const int isbnColumn = headers.indexOf("isbn");
-    const int titleColumn = headers.indexOf("title");
-    int authorColumn = headers.indexOf("author");
-    if (authorColumn < 0) authorColumn = headers.indexOf("authors");
-    const int sourceColumn = headers.indexOf("engine source");
-    const int coverColumn = headers.indexOf("cover url");
-    if (isbnColumn < 0 || titleColumn < 0) {
-        QMessageBox::warning(this, "Import CSV Failed", "CSV must include ISBN and Title columns.");
+    const QStringList expectedHeaders = {
+        "ISBN", "Title", "Author", "Engine Source", "Cover URL",
+        "First Publication Date", "Publisher", "Page Count"
+    };
+    if (headers != expectedHeaders) {
+        QMessageBox::warning(
+            this, "Import CSV Failed",
+            "CSV headers must be: " + expectedHeaders.join(", "));
         return;
     }
 
@@ -355,11 +357,20 @@ void MainWindow::importBooksCsv()
 
         BookInfo info;
         info.found = true;
-        info.isbn = valueAt(isbnColumn);
-        info.title = valueAt(titleColumn);
-        info.authors = valueAt(authorColumn);
-        info.engineSource = valueAt(sourceColumn);
-        info.coverUrl = valueAt(coverColumn);
+        info.isbn = valueAt(0);
+        info.title = valueAt(1);
+        info.authors = valueAt(2);
+        info.engineSource = valueAt(3);
+        info.coverUrl = valueAt(4);
+        info.publicationDate = valueAt(5);
+        info.publisher = valueAt(6);
+        const QString pageCountText = valueAt(7);
+        bool pageCountValid = true;
+        info.pageCount = pageCountText.isEmpty() ? 0 : pageCountText.toInt(&pageCountValid);
+        if (!pageCountValid || info.pageCount < 0) {
+            ++skippedCount;
+            continue;
+        }
         if (info.isbn.isEmpty() || info.title.isEmpty()) {
             ++skippedCount;
             continue;
