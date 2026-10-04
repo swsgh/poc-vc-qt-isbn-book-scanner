@@ -1,4 +1,5 @@
 #include "bookdetailssidebar.h"
+#include "covercache.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -106,7 +107,7 @@ void BookDetailsSidebar::applyPalette(const QPalette &palette)
         "QPushButton:hover { background-color: %4; color: %5; }")
         .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
 
-    if (m_currentBook.found && m_currentBook.coverData.isEmpty()) {
+    if (m_currentBook.found && !CoverCache::contains(m_currentBook.isbn)) {
         setCoverForBook(m_currentBook);
     }
 }
@@ -114,7 +115,8 @@ void BookDetailsSidebar::applyPalette(const QPalette &palette)
 void BookDetailsSidebar::setCoverForBook(const BookInfo &info)
 {
     QPixmap coverPixmap;
-    if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
+    if (!info.coverUrl.isEmpty() && CoverCache::contains(info.isbn)
+        && coverPixmap.load(CoverCache::filePath(info.isbn))) {
         m_coverLabel->setPixmap(coverPixmap.scaled(m_coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         return;
     }
@@ -141,6 +143,13 @@ void BookDetailsSidebar::updateDetails(const BookInfo &info)
     m_detailTitleLabel->setText(info.title);
     m_detailAuthorLabel->setText(QString("by %1").arg(info.authors.isEmpty() ? "Unknown" : info.authors));
     m_detailIsbnLabel->setText("ISBN: " + info.isbn);
+}
+
+void BookDetailsSidebar::refreshCover(const QString &isbn)
+{
+    if (m_currentBook.found && m_currentBook.isbn == isbn) {
+        setCoverForBook(m_currentBook);
+    }
 }
 
 void BookDetailsSidebar::closeSidebar()

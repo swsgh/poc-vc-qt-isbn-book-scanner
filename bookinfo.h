@@ -2,7 +2,6 @@
 #define BOOKINFO_H
 
 #include <QString>
-#include <QByteArray>
 #include <QMetaType>
 
 struct BookInfo {
@@ -11,7 +10,7 @@ struct BookInfo {
     QString title;
     QString authors;
     QString engineSource;
-    QByteArray coverData;
+    QString coverUrl;
 };
 Q_DECLARE_METATYPE(BookInfo)
 

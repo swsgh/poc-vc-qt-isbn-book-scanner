@@ -2,6 +2,7 @@
 #include "openlibraryprovider.h"
 #include "googlebooksprovider.h"
 #include "bookdatabasemanager.h"
+#include "covercache.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -69,6 +70,36 @@ void BookMetadataProvider::lookupIsbn(const QString &isbn)
     QTimer::singleShot(3000, this, &BookMetadataProvider::resetScannerCooldown);
 }
 
+void BookMetadataProvider::cacheCoverForBook(const QString &isbn, const QString &coverUrl)
+{
+    if (isbn.isEmpty() || coverUrl.isEmpty() || CoverCache::contains(isbn)
+        || m_activeCoverDownloads.contains(isbn)) {
+        return;
+    }
+
+    const QUrl url(coverUrl);
+    const QString scheme = url.scheme().toLower();
+    if (!url.isValid() || url.host().isEmpty()
+        || (scheme != "http" && scheme != "https")) {
+        return;
+    }
+
+    m_activeCoverDownloads.insert(isbn);
+    QNetworkRequest request(url);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setHeader(QNetworkRequest::UserAgentHeader, "Qt6ISBNBookScanner/1.0");
+    QNetworkReply *reply = m_imageNetworkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, isbn]() {
+        const QByteArray data = reply->readAll();
+        const bool cached = reply->error() == QNetworkReply::NoError
+            && CoverCache::saveImage(isbn, data);
+        reply->deleteLater();
+        m_activeCoverDownloads.remove(isbn);
+        if (cached) emit coverCached(isbn);
+    });
+}
+
 void BookMetadataProvider::resetScannerCooldown() { m_isCooldownActive = false; }
 
 void BookMetadataProvider::handlePrimarySuccess(const BookInfo &info, const QString &urlSmall, const QString &urlMedium)
@@ -109,6 +140,7 @@ void BookMetadataProvider::handleFallbackFailure(const QString &errorMsg)
 void BookMetadataProvider::downloadCoverImage(const QString &url, const QString &statusText, bool isMedium)
 {
     emit lookupStatusChanged(statusText, false);
+    m_pendingInfo.coverUrl = url;
 
     QNetworkRequest req((QUrl(url)));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -125,8 +157,8 @@ void BookMetadataProvider::handleCoverDownloadFinished(QNetworkReply* reply, boo
     reply->deleteLater();
     QByteArray data = reply->readAll();
 
-    if (reply->error() == QNetworkReply::NoError && data.size() > 100) {
-        m_pendingInfo.coverData = data;
+    if (reply->error() == QNetworkReply::NoError
+        && CoverCache::saveImage(m_pendingInfo.isbn, data)) {
         if (isMedium) {
             emit bookDataReady(m_pendingInfo);
             return;
@@ -140,6 +172,7 @@ void BookMetadataProvider::handleCoverDownloadFinished(QNetworkReply* reply, boo
         return;
     }
 
+    m_pendingInfo.coverUrl.clear();
     emit bookDataReady(m_pendingInfo);
 }
 

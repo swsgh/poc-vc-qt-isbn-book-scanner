@@ -1,4 +1,5 @@
 #include "bookshelfwidget.h"
+#include "covercache.h"
 #include <QGridLayout>
 #include <QVBoxLayout>
 #include <QScrollArea>
@@ -71,7 +72,8 @@ void BookshelfWidget::updateBookCardCover(QWidget *card, const BookInfo &info)
     }
 
     QPixmap coverPixmap;
-    if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
+    if (!info.coverUrl.isEmpty() && CoverCache::contains(info.isbn)
+        && coverPixmap.load(CoverCache::filePath(info.isbn))) {
         coverLabel->setPixmap(coverPixmap.scaled(coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
         coverLabel->setPixmap(generatePlaceholderCover(info.title));

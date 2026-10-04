@@ -176,7 +176,7 @@ void BookSyncManager::uploadBookToServer(const BookInfo &info)
 {
     if (!isAuthenticated()) return;
 
-    // Use MultiPart to handle both text string metadata configurations and binary blobs simultaneously
+    // Keep the existing multipart form contract, but send cover URLs instead of image bytes.
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
     // Part A: Form text parameter wrapping stringified payload details
@@ -188,20 +188,12 @@ void BookSyncManager::uploadBookToServer(const BookInfo &info)
     metaJson["title"] = info.title;
     metaJson["authors"] = info.authors;
     metaJson["engineSource"] = info.engineSource;
+    metaJson["coverUrl"] = info.coverUrl;
     metadataPart.setBody(QJsonDocument(metaJson).toJson(QJsonDocument::Compact));
     multiPart->append(metadataPart);
 
-    // Part B: Raw binary data streaming configuration mapping covers
-    if (!info.coverData.isEmpty()) {
-        QHttpPart coverPart;
-        coverPart.setHeader(QNetworkRequest::ContentTypeHeader, "image/jpeg");
-        coverPart.setHeader(QNetworkRequest::ContentDispositionHeader, "form-data; name=\"cover\"; filename=\"cover.jpg\"");
-        coverPart.setBody(info.coverData);
-        multiPart->append(coverPart);
-    }
-
     QNetworkRequest request = createAuthenticatedRequest("/api/books/upload");
-    request.setHeader(QNetworkRequest::ContentTypeHeader, QVariant()); // Multer boundary maps this dynamically
+    request.setHeader(QNetworkRequest::ContentTypeHeader, QVariant());
 
     QNetworkReply *reply = m_networkManager->post(request, multiPart);
     multiPart->setParent(reply); // Memory safety lifecycle hook assignment
@@ -299,10 +291,7 @@ void BookSyncManager::handleSyncResponse(const QByteArray &jsonResponse)
             info.title = bookObj.value("title").toString();
             info.authors = bookObj.value("authors").toString();
             info.engineSource = bookObj.value("engineSource").toString();
-
-            // Re-translate the incoming safe Base64 server string field directly back into raw local image binaries
-            QString base64Cover = bookObj.value("coverDataBase64").toString();
-            info.coverData = QByteArray::fromBase64(base64Cover.toUtf8());
+            info.coverUrl = bookObj.value("coverUrl").toString();
 
             booksToSave.append(info);
         }

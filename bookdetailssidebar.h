@@ -19,6 +19,7 @@ public:
 
 public slots:
     void updateDetails(const BookInfo &info);
+    void refreshCover(const QString &isbn);
     void closeSidebar();
     void applyPalette(const QPalette &palette);
 

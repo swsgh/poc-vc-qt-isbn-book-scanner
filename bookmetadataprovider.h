@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QByteArray>
+#include <QSet>
 #include <memory>
 #include "bookinfo.h"
 
@@ -20,10 +21,12 @@ public:
     ~BookMetadataProvider() override;
 
     void lookupIsbn(const QString &isbn);
+    void cacheCoverForBook(const QString &isbn, const QString &coverUrl);
 
 signals:
     void lookupStatusChanged(const QString &statusText, bool isError);
     void bookDataReady(const BookInfo &info);
+    void coverCached(const QString &isbn);
 
 private slots:
     void handlePrimarySuccess(const BookInfo &info, const QString &urlSmall, const QString &urlMedium);
@@ -48,6 +51,7 @@ private:
 
     BookInfo m_pendingInfo;
     QString m_fallbackUrlSmall;
+    QSet<QString> m_activeCoverDownloads;
 };
 
 #endif // BOOKMETADATAPROVIDER_H

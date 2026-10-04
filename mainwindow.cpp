@@ -5,6 +5,7 @@
 #include "bookshelfwidget.h"
 #include "bookdetailssidebar.h"
 #include "booksyncmanager.h"
+#include "covercache.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -328,6 +329,12 @@ void MainWindow::setupConnections()
     connect(m_bookshelfWidget, &BookshelfWidget::bookSelected, m_detailsSidebar, &BookDetailsSidebar::updateDetails);
     connect(m_detailsSidebar, &BookDetailsSidebar::deleteBookRequested, this, &MainWindow::removeBookRecord);
     connect(m_searchBar, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
+    connect(m_metadataProvider, &BookMetadataProvider::coverCached, this,
+            [this](const QString &isbn) {
+                const BookInfo info = m_dbManager->getBookByIsbn(isbn);
+                if (info.found) m_bookshelfWidget->addBookToShelf(info, false);
+                m_detailsSidebar->refreshCover(isbn);
+            });
 }
 
 void MainWindow::setupSync()
@@ -548,6 +555,9 @@ void MainWindow::populateBookshelf()
     const QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
     for (const BookInfo &book : historicalBooks) {
         m_bookshelfWidget->addBookToShelf(book, false);
+        if (!book.coverUrl.isEmpty() && !CoverCache::contains(book.isbn)) {
+            m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl);
+        }
     }
 }
 
@@ -615,6 +625,7 @@ void MainWindow::handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
         tombstones.insert(isbn);
         m_dbManager->deleteBookRecord(isbn);
         m_bookshelfWidget->removeBookFromShelf(isbn);
+        CoverCache::removeImage(isbn);
     }
 
     for (const BookInfo &book : booksToSave) {
@@ -623,6 +634,9 @@ void MainWindow::handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
         }
         m_dbManager->saveRemoteBookRecord(book);
         m_bookshelfWidget->addBookToShelf(book, true);
+        if (!book.coverUrl.isEmpty() && !CoverCache::contains(book.isbn)) {
+            m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl);
+        }
     }
 }
 
@@ -667,6 +681,7 @@ void MainWindow::removeBookRecord(const QString &isbn)
 
     m_bookshelfWidget->removeBookFromShelf(isbn);
     m_detailsSidebar->closeSidebar();
+    CoverCache::removeImage(isbn);
 
     if (m_syncManager) {
         m_dbManager->addPendingDelete(isbn);
