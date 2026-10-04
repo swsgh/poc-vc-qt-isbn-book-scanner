@@ -40,7 +40,7 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     sidebarLayout->setSpacing(12);
 
     QHBoxLayout *headerRowLayout = new QHBoxLayout();
-    QLabel *sidebarHeader = new QLabel("<b>📚 BOOK DETAILS</b>", this);
+    QLabel *sidebarHeader = new QLabel("<b>Book Analytics</b>", this);
     sidebarHeader->setStyleSheet("font-size: 13px; color: #aaaaaa; letter-spacing: 1px;"); // Dim silver title
 
     QPushButton *closeSidebarButton = new QPushButton("✕", this);
@@ -61,7 +61,7 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     m_coverLabel->setStyleSheet("border: 1px solid #2d2d2d; background: #121212; border-radius: 4px;"); // Deep image tray
     sidebarLayout->addWidget(m_coverLabel, 0, Qt::AlignHCenter);
 
-    m_detailTitleLabel = new QLabel("Select a book from your shelf...", this);
+    m_detailTitleLabel = new QLabel("Select a book to inspect details", this);
     m_detailTitleLabel->setWordWrap(true);
     m_detailTitleLabel->setStyleSheet("font-size: 14px; color: #ffffff; font-weight: 500;"); // Crisp white
 
@@ -78,7 +78,7 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
 
     sidebarLayout->addStretch();
 
-    m_deleteButton = new QPushButton("🗑️ Remove From Shelf", this);
+    m_deleteButton = new QPushButton("🗑️ Remove from Shelf", this);
     m_deleteButton->setMinimumHeight(35);
     m_deleteButton->setCursor(Qt::PointingHandCursor);
     // Flat dark design with neon red frame lines matching dark modern layout themes
@@ -111,7 +111,7 @@ void BookDetailsSidebar::setCoverForBook(const BookInfo &info)
 
 void BookDetailsSidebar::clearDetailsText()
 {
-    m_detailTitleLabel->setText("Select a book from your shelf...");
+    m_detailTitleLabel->setText("Select a book to inspect details");
     m_detailAuthorLabel->clear();
     m_detailIsbnLabel->clear();
 }

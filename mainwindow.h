@@ -46,12 +46,7 @@ private:
     void setupConnections();
     void setupSync();
     void populateBookshelf();
-    void applyStatusStyle(const QString &text,
-                          const QString &textColor,
-                          const QString &backgroundColor,
-                          const QString &borderColor,
-                          int fontSize,
-                          int padding);
+    void applyStatusStyle(const QString &text, const QString &textColor = {});
     void handleBookSaved(const QString &isbn);
     void handleSyncQueueFlush();
     void handleLoginSuccess();
@@ -64,7 +59,7 @@ private:
     BookshelfWidget* m_bookshelfWidget = nullptr;
     BookDetailsSidebar* m_detailsSidebar = nullptr;
     BookSyncManager* m_syncManager = nullptr;
-    QLabel* m_isbnLabel = nullptr;
+    QLabel* m_statusLabel = nullptr;
     QLineEdit* m_searchBar = nullptr;
     QLineEdit* m_manualIsbnInput = nullptr;
     QPushButton* m_cameraToggleButton = nullptr;

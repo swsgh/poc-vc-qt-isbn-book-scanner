@@ -51,9 +51,9 @@ void MainWindow::setupUi()
     mainVerticalLayout->setSpacing(10);
 
     auto *controlsLayout = new QHBoxLayout;
-    m_cameraToggleButton = new QPushButton("📷 Show Camera", centralWidget);
+    m_cameraToggleButton = new QPushButton("📷 Open Scanner Suite", centralWidget);
     m_cameraToggleButton->setObjectName("cameraToggleButton");
-    m_cameraToggleButton->setToolTip("Show the camera preview and start capture");
+    m_cameraToggleButton->setToolTip("Open the scanner view and start camera capture");
     m_cameraToggleButton->setAccessibleName("Camera preview toggle");
     m_cameraToggleButton->setMinimumWidth(140);
     m_cameraToggleButton->setFixedHeight(36);
@@ -84,31 +84,36 @@ void MainWindow::setupUi()
     m_scannerView->hide();
     mainVerticalLayout->addWidget(m_scannerView, 0, Qt::AlignHCenter);
 
-    m_isbnLabel = new QLabel(this);
-    m_isbnLabel->setAlignment(Qt::AlignCenter);
-    applyStatusStyle("Center the ISBN inside the scan window or enter it below.",
-                     "#e0e0e0",
-                     "#1e1e1e",
-                     "#1e1e1e",
-                     14,
-                     8);
-    m_isbnLabel->hide();
-    mainVerticalLayout->addWidget(m_isbnLabel, 0);
+    auto *manualLookupLayout = new QHBoxLayout;
+    m_manualIsbnInput = new QLineEdit(centralWidget);
+    m_manualIsbnInput->setPlaceholderText("Type an ISBN code manually (e.g. 9781449392178)...");
+    m_manualIsbnInput->setMaxLength(17);
+    m_manualIsbnInput->setStyleSheet(
+        "QLineEdit { background-color: #121212; border: 1px solid #121212; "
+        "border-radius: 6px; padding: 10px; color: #ffffff; font-size: 14px; }"
+        "QLineEdit:focus { border: 1px solid #3498db; }");
+    m_manualLookupButton = new QPushButton("🔍 Lookup", centralWidget);
+    m_manualLookupButton->setMinimumSize(110, 40);
+    m_manualLookupButton->setStyleSheet(
+        "QPushButton { background-color: #121212; color: #ffffff; "
+        "border: 1px solid #3498db; border-radius: 6px; padding: 10px; "
+        "font-weight: bold; }"
+        "QPushButton:hover { background-color: #3498db; color: #ffffff; }");
+    connect(m_manualIsbnInput, &QLineEdit::returnPressed,
+            this, &MainWindow::submitManualIsbn);
+    connect(m_manualLookupButton, &QPushButton::clicked,
+            this, &MainWindow::submitManualIsbn);
+    manualLookupLayout->addWidget(m_manualIsbnInput, 1);
+    manualLookupLayout->addWidget(m_manualLookupButton);
+    m_manualIsbnInput->hide();
+    m_manualLookupButton->hide();
+    mainVerticalLayout->addLayout(manualLookupLayout);
 
-        auto *manualLookupLayout = new QHBoxLayout;
-        m_manualIsbnInput = new QLineEdit(centralWidget);
-        m_manualIsbnInput->setPlaceholderText("Enter a 10- or 13-digit ISBN...");
-        m_manualIsbnInput->setMaxLength(17);
-        m_manualLookupButton = new QPushButton("Lookup", centralWidget);
-        connect(m_manualIsbnInput, &QLineEdit::returnPressed,
-            this, &MainWindow::submitManualIsbn);
-        connect(m_manualLookupButton, &QPushButton::clicked,
-            this, &MainWindow::submitManualIsbn);
-        manualLookupLayout->addWidget(m_manualIsbnInput, 1);
-        manualLookupLayout->addWidget(m_manualLookupButton);
-        m_manualIsbnInput->hide();
-        m_manualLookupButton->hide();
-        mainVerticalLayout->addLayout(manualLookupLayout);
+    m_statusLabel = new QLabel(this);
+    m_statusLabel->setAlignment(Qt::AlignCenter);
+    applyStatusStyle("Center an ISBN barcode to log a book");
+    m_statusLabel->hide();
+    mainVerticalLayout->addWidget(m_statusLabel, 0);
 
     auto *bottomRowContainer = new QWidget(this);
     auto *bottomRowLayout = new QHBoxLayout(bottomRowContainer);
@@ -123,7 +128,7 @@ void MainWindow::setupUi()
     bookshelfAreaLayout->addWidget(m_bookshelfWidget, 1);
 
     m_searchBar = new QLineEdit(this);
-    m_searchBar->setPlaceholderText("🔍 Search by title, author, or ISBN...");
+    m_searchBar->setPlaceholderText("🔎 Type to filter bookshelf by title or author name...");
     m_searchBar->setClearButtonEnabled(true);
     m_searchBar->setStyleSheet(
         "QLineEdit {"
@@ -153,14 +158,14 @@ void MainWindow::setupUi()
     resize(950, 750);
 
     auto *syncMenu = new QMenu(this);
-    m_registerAction = syncMenu->addAction("Register account...");
-    m_loginAction = syncMenu->addAction("Log in...");
-    m_syncAction = syncMenu->addAction("Sync now");
-    m_logoutAction = syncMenu->addAction("Log out");
+    m_registerAction = syncMenu->addAction("Register Sync Account...");
+    m_loginAction = syncMenu->addAction("Log In to Sync...");
+    m_syncAction = syncMenu->addAction("Sync Now");
+    m_logoutAction = syncMenu->addAction("Log Out of Sync");
     m_syncAction->setEnabled(false);
     m_logoutAction->setEnabled(false);
     syncMenu->addSeparator();
-    m_clearLibraryAction = syncMenu->addAction("Clear Library Database...");
+    m_clearLibraryAction = syncMenu->addAction("🗑️ Clear Library Database");
     m_settingsButton->setMenu(syncMenu);
 
     connect(m_registerAction, &QAction::triggered, this, &MainWindow::promptRegisterAccount);
@@ -175,17 +180,17 @@ void MainWindow::toggleCameraView()
 {
     const bool isVisible = m_scannerView->isVisible();
     m_scannerView->setVisible(!isVisible);
-    m_isbnLabel->setVisible(!isVisible);
+    m_statusLabel->setVisible(!isVisible);
     m_manualIsbnInput->setVisible(!isVisible);
     m_manualLookupButton->setVisible(!isVisible);
 
     if (isVisible) {
         m_scannerView->stopCapture();
-        m_cameraToggleButton->setText("📷 Show Camera");
-        m_cameraToggleButton->setToolTip("Show the camera preview and start capture");
+        m_cameraToggleButton->setText("📷 Open Scanner Suite");
+        m_cameraToggleButton->setToolTip("Open the scanner view and start camera capture");
     } else {
-        m_cameraToggleButton->setText("📷 Hide Camera");
-        m_cameraToggleButton->setToolTip("Hide the camera preview and stop capture");
+        m_cameraToggleButton->setText("🙈 Hide Scanner Suite");
+        m_cameraToggleButton->setToolTip("Hide the scanner view and stop camera capture");
         m_scannerView->startCapture();
     }
 }
@@ -201,8 +206,8 @@ void MainWindow::submitManualIsbn()
             return character >= QLatin1Char('0') && character <= QLatin1Char('9');
         });
     if (!validLength || !containsOnlyDigits) {
-        updateStatusLabel("ISBN must contain 10 or 13 digits.", true);
-        m_manualIsbnInput->setFocus();
+        QMessageBox::warning(this, "Invalid Input",
+                             "ISBN must be a string of 10 or 13 numbers.");
         return;
     }
 
@@ -214,8 +219,8 @@ void MainWindow::clearLibraryDatabase()
 {
     const auto confirmation = QMessageBox::question(
         this,
-        "Clear Library Database",
-        "Delete all books from this library? Pending server deletions will be synchronized when connected.",
+        "Clear Entire Library?",
+        "Are you completely sure you want to purge all books from the database and UI grid view?",
         QMessageBox::Yes | QMessageBox::No,
         QMessageBox::No);
     if (confirmation != QMessageBox::Yes) return;
@@ -230,7 +235,7 @@ void MainWindow::clearLibraryDatabase()
         handleSyncQueueFlush();
     }
 
-    statusBar()->showMessage("Library cleared; pending deletions are queued for synchronization.", 8000);
+    applyStatusStyle("🧹 Library database completely wiped.");
 }
 
 void MainWindow::setupDatabase()
@@ -284,7 +289,9 @@ void MainWindow::setupSync()
     connect(m_syncManager, &BookSyncManager::authStatusMessage,
             this, &MainWindow::updateStatusLabel);
     connect(m_syncManager, &BookSyncManager::networkErrorOccurred, this,
-            [this](const QString &message) { updateStatusLabel(message, true); });
+            [this](const QString &message) {
+                updateStatusLabel("Sync failed: " + message, true);
+            });
 }
 
 void MainWindow::promptRegisterAccount()
@@ -333,7 +340,7 @@ void MainWindow::syncNow()
 void MainWindow::logoutSync()
 {
     if (m_syncManager->isSyncRequestInFlight()) {
-        updateStatusLabel("Wait for synchronization to finish before logging out.", true);
+        updateStatusLabel("Wait for the current sync to finish before logging out.", true);
         return;
     }
     m_syncManager->logoutAccount();
@@ -366,8 +373,7 @@ void MainWindow::handleSyncCompleted(const QString &username, qint64 checkpoint,
     }
 
     handleSyncQueueFlush();
-    applyStatusStyle("Bookshelf synchronization complete.",
-                     "#2ecc71", "#152c1e", "#27ae60", 14, 8);
+    applyStatusStyle("Bookshelf synchronization complete.");
 }
 
 void MainWindow::populateBookshelf()
@@ -378,18 +384,15 @@ void MainWindow::populateBookshelf()
     }
 }
 
-void MainWindow::applyStatusStyle(const QString &text,
-                                 const QString &textColor,
-                                 const QString &backgroundColor,
-                                 const QString &borderColor,
-                                 int fontSize,
-                                 int padding)
+void MainWindow::applyStatusStyle(const QString &text, const QString &textColor)
 {
-    m_isbnLabel->setText(text);
-    const QString style = QString(
-        "font-size: %1px; font-weight: bold; color: %2; padding: %3px; background: %4; border: 1px solid %5; border-radius: 4px;"
-    ).arg(fontSize).arg(textColor).arg(padding).arg(backgroundColor).arg(borderColor);
-    m_isbnLabel->setStyleSheet(style);
+    m_statusLabel->setText(text);
+    QString style = "font-weight: bold; font-size: 13px; padding: 3px; "
+                    "color: #e0e0e0; background: transparent; border: none;";
+    if (!textColor.isEmpty()) {
+        style += " color: " + textColor + ";";
+    }
+    m_statusLabel->setStyleSheet(style);
 }
 
 void MainWindow::handleBookSaved(const QString &isbn)
@@ -404,12 +407,7 @@ void MainWindow::handleBookSaved(const QString &isbn)
         }
     }
 
-    applyStatusStyle("Scan complete! Local database repository successfully updated.",
-                     "#2ecc71",
-                     "#152c1e",
-                     "#27ae60",
-                     15,
-                     15);
+    applyStatusStyle(QString("✅ Logged: %1").arg(freshRecord.title));
 }
 
 void MainWindow::handleSyncQueueFlush()
@@ -464,39 +462,25 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
 {
     if (isError) {
         qCritical() << "[Scanner System Error Alert]:\n" << text;
-        applyStatusStyle(text,
-                         "#ff6b6b",
-                         "#2c1515",
-                         "#e74c3c",
-                         15,
-                         10);
+        applyStatusStyle(text, "#ff6b6b");
         return;
     }
 
-    applyStatusStyle(text, "#f39c12", "#2c2215", "#d35400", 15, 10);
+    applyStatusStyle(text);
 }
 
 void MainWindow::displayBookDetails(const BookInfo &info)
 {
-    applyStatusStyle(QString("📖 Successfully scanned: %1").arg(info.title),
-                     "#2ecc71",
-                     "#152c1e",
-                     "#27ae60",
-                     15,
-                     15);
+    applyStatusStyle(QString("📖 Successfully scanned: %1").arg(info.title));
     m_detailsSidebar->updateDetails(info);
 }
 
 void MainWindow::removeBookRecord(const QString &isbn)
 {
-    const BookInfo bookToPurge = m_dbManager->getBookByIsbn(isbn);
-    const QString bookTitle = bookToPurge.found ? bookToPurge.title : "this book";
-
     const auto confirmation = QMessageBox::question(
         this,
-        "Confirm Deletion",
-        QString("Are you sure you want to permanently remove \"%1\" from your library archive?")
-            .arg(bookTitle),
+        "Remove Book",
+        "Are you sure you want to remove this book from your collection?",
         QMessageBox::Yes | QMessageBox::No);
 
     if (confirmation == QMessageBox::No) {
@@ -520,12 +504,7 @@ void MainWindow::removeBookRecord(const QString &isbn)
         m_syncManager->deleteBookFromServer(isbn);
     }
 
-    applyStatusStyle("Book record removed successfully from shelf archive.",
-                     "#7f8c8d",
-                     "#ecf0f1",
-                     "#7f8c8d",
-                     14,
-                     8);
+    applyStatusStyle("🗑️ Book removed from collection.");
 }
 
 void MainWindow::onSearchTextChanged(const QString &text)

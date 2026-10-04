@@ -63,10 +63,10 @@ void BookSyncManager::registerAccount(const QString &username, const QString &pa
     connect(reply, &QNetworkReply::finished, this, [this, reply, username, password]() {
         reply->deleteLater();
         if (reply->error() == QNetworkReply::NoError) {
-            emit authStatusMessage("Account registered. Signing in...", false);
             loginAccount(username, password);
         } else {
-            emit authStatusMessage(replyErrorMessage(reply, "Registration failed."), true);
+            emit authStatusMessage(
+                "Sync failed: " + replyErrorMessage(reply, "Registration failed."), true);
         }
     });
 }
@@ -84,25 +84,25 @@ void BookSyncManager::loginAccount(const QString &username, const QString &passw
         reply->deleteLater();
 
         if (reply->error() != QNetworkReply::NoError) {
-            emit authStatusMessage(replyErrorMessage(reply, "Login failed."), true);
+            emit authStatusMessage("Sync failed: " + replyErrorMessage(reply, "Login failed."), true);
             return;
         }
 
         const QByteArray response = reply->readAll();
         const QJsonDocument doc = QJsonDocument::fromJson(response);
         if (doc.isNull() || !doc.isObject()) {
-            emit authStatusMessage("Login response was malformed.", true);
+            emit authStatusMessage("Sync failed: login response was malformed.", true);
             return;
         }
 
         m_token = doc.object().value("token").toString();
         if (m_token.isEmpty()) {
-            emit authStatusMessage("Login succeeded but no token was returned.", true);
+            emit authStatusMessage("Sync failed: the login response did not include a token.", true);
             return;
         }
 
         m_username = username;
-        emit authStatusMessage("Successfully connected to cloud workspace panel.", false);
+        emit authStatusMessage(QString("Signed in to sync as %1.").arg(username), false);
         emit loginSuccess();
         triggerDifferentialSync();
     });

@@ -63,27 +63,14 @@ void BookMetadataProvider::lookupIsbn(const QString &isbn)
     // LOCAL CACHE BYPASS INJECTION: Check SQLite before Web Lookup
     // =================================================================
     if (m_dbManager && m_dbManager->hasBookInLocalDatabase(isbn)) {
-        emit lookupStatusChanged(QString("ISBN %1 matched locally. Loading from SQLite offline cache...").arg(isbn), false);
-
-        // Extract the complete, fully formed data record directly from the database manager
-        BookInfo cachedBook = m_dbManager->getBookByIsbn(isbn);
-
-        if (cachedBook.found) {
-            // Identify engine source source configuration markers dynamically
-            cachedBook.engineSource += " (Local Offline Database Cache)";
-
-            // Emit the complete book data and stop execution to block web network traffic completely
-            emit bookDataReady(cachedBook);
-
-            // Start the standard 3-second cooldown timer before returning
-            QTimer::singleShot(3000, this, &BookMetadataProvider::resetScannerCooldown);
-            return;
-        }
+        emit lookupStatusChanged(QString("💡 ISBN %1 already exists on shelf.").arg(isbn), false);
+        QTimer::singleShot(3000, this, &BookMetadataProvider::resetScannerCooldown);
+        return;
     }
     // =================================================================
 
     // If the book is missing from the database rows, continue to web network fallback cascade routines
-    emit lookupStatusChanged(QString("Searching Open Library for ISBN: %1...").arg(isbn), false);
+    emit lookupStatusChanged(QString("🔍 Digging up metadata for ISBN: %1...").arg(isbn), false);
     m_openLibrary->requestMetadata(isbn);
 
     QTimer::singleShot(3000, this, &BookMetadataProvider::resetScannerCooldown);
