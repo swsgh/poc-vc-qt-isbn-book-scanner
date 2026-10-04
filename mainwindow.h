@@ -37,6 +37,8 @@ private slots:
     void syncNow();
     void logoutSync();
     void toggleCameraView();
+    void importBooksCsv();
+    void exportBooksCsv();
     void handleSyncCompleted(const QString &username, qint64 checkpoint,
                              bool initialSync, const QStringList &remoteIsbns);
 

@@ -67,6 +67,28 @@ void BookDatabaseManager::saveRemoteBookRecord(const BookInfo &info)
     writeBookRecord(info);
 }
 
+bool BookDatabaseManager::saveImportedBookRecord(const BookInfo &info)
+{
+    QSqlDatabase database = QSqlDatabase::database();
+    if (!database.transaction()) {
+        emit databaseError("Failed to begin book import transaction: "
+                           + database.lastError().text());
+        return false;
+    }
+
+    if (!writeBookRecord(info) || !queueSyncAction(info.isbn, "UPLOAD")) {
+        database.rollback();
+        return false;
+    }
+
+    if (!database.commit()) {
+        database.rollback();
+        emit databaseError("Failed to commit imported book: " + database.lastError().text());
+        return false;
+    }
+    return true;
+}
+
 bool BookDatabaseManager::writeBookRecord(const BookInfo &info)
 {
     if (!info.found) return false;

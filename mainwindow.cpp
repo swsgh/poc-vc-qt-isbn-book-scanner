@@ -33,7 +33,76 @@
 #include <QToolButton>
 #include <QStatusBar>
 #include <QSizePolicy>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+#include <QStringConverter>
 #include <algorithm>
+
+namespace {
+QString escapeCsvField(QString field)
+{
+    field.replace('"', "\"\"");
+    return '"' + field + '"';
+}
+
+bool parseCsvRecords(const QString &contents, QList<QStringList> &records)
+{
+    QStringList record;
+    QString field;
+    bool insideQuotes = false;
+    bool recordHasData = false;
+
+    for (qsizetype index = 0; index < contents.size(); ++index) {
+        const QChar character = contents.at(index);
+        if (insideQuotes) {
+            if (character == '"') {
+                if (index + 1 < contents.size() && contents.at(index + 1) == '"') {
+                    field.append('"');
+                    ++index;
+                } else {
+                    insideQuotes = false;
+                }
+            } else {
+                field.append(character);
+            }
+            recordHasData = true;
+            continue;
+        }
+
+        if (character == '"' && field.isEmpty()) {
+            insideQuotes = true;
+            recordHasData = true;
+        } else if (character == ',') {
+            record.append(field);
+            field.clear();
+            recordHasData = true;
+        } else if (character == '\r' || character == '\n') {
+            if (character == '\r' && index + 1 < contents.size()
+                && contents.at(index + 1) == '\n') {
+                ++index;
+            }
+            if (recordHasData || !record.isEmpty()) {
+                record.append(field);
+                records.append(record);
+            }
+            record.clear();
+            field.clear();
+            recordHasData = false;
+        } else {
+            field.append(character);
+            recordHasData = true;
+        }
+    }
+
+    if (insideQuotes) return false;
+    if (recordHasData || !record.isEmpty()) {
+        record.append(field);
+        records.append(record);
+    }
+    return true;
+}
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -184,12 +253,141 @@ void MainWindow::setupUi()
     m_logoutAction->setEnabled(false);
     syncMenu->addSeparator();
     m_registerAction = syncMenu->addAction("Register Sync Account...");
+    syncMenu->addSeparator();
+    QAction *importCsvAction = syncMenu->addAction("Import CSV...");
+    QAction *exportCsvAction = syncMenu->addAction("Export CSV...");
     m_settingsButton->setMenu(syncMenu);
 
     connect(m_registerAction, &QAction::triggered, this, &MainWindow::promptRegisterAccount);
     connect(m_loginAction, &QAction::triggered, this, &MainWindow::promptLoginAccount);
     connect(m_syncAction, &QAction::triggered, this, &MainWindow::syncNow);
     connect(m_logoutAction, &QAction::triggered, this, &MainWindow::logoutSync);
+    connect(importCsvAction, &QAction::triggered, this, &MainWindow::importBooksCsv);
+    connect(exportCsvAction, &QAction::triggered, this, &MainWindow::exportBooksCsv);
+}
+
+void MainWindow::exportBooksCsv()
+{
+    const QList<BookInfo> books = m_dbManager->getAllSavedBooks();
+    if (books.isEmpty()) {
+        QMessageBox::information(this, "Export CSV", "There are no books to export.");
+        return;
+    }
+
+    QString filePath = QFileDialog::getSaveFileName(
+        this, "Export Books to CSV",
+        QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+        "CSV files (*.csv)");
+    if (filePath.isEmpty()) return;
+    if (!filePath.endsWith(".csv", Qt::CaseInsensitive)) filePath += ".csv";
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::critical(this, "Export CSV Failed", file.errorString());
+        return;
+    }
+
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+    stream.setGenerateByteOrderMark(true);
+    stream << "ISBN,Title,Author,Engine Source,Cover URL\r\n";
+    for (const BookInfo &book : books) {
+        stream << escapeCsvField(book.isbn) << ','
+               << escapeCsvField(book.title) << ','
+               << escapeCsvField(book.authors) << ','
+               << escapeCsvField(book.engineSource) << ','
+               << escapeCsvField(book.coverUrl) << "\r\n";
+    }
+    stream.flush();
+    if (stream.status() != QTextStream::Ok) {
+        QMessageBox::critical(this, "Export CSV Failed", "Could not write the CSV file.");
+        return;
+    }
+    QMessageBox::information(this, "Export CSV",
+                             QString("Exported %1 books to:\n%2").arg(books.size()).arg(filePath));
+}
+
+void MainWindow::importBooksCsv()
+{
+    const QString filePath = QFileDialog::getOpenFileName(
+        this, "Import Books from CSV",
+        QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+        "CSV files (*.csv)");
+    if (filePath.isEmpty()) return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::critical(this, "Import CSV Failed", file.errorString());
+        return;
+    }
+
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+    QList<QStringList> records;
+    if (!parseCsvRecords(stream.readAll(), records) || records.isEmpty()) {
+        QMessageBox::warning(this, "Import CSV Failed", "The CSV file is empty or malformed.");
+        return;
+    }
+
+    QStringList headers = records.first();
+    if (!headers.isEmpty() && headers.first().startsWith(QChar::ByteOrderMark)) {
+        headers[0].remove(0, 1);
+    }
+    for (QString &header : headers) header = header.trimmed().toLower();
+    const int isbnColumn = headers.indexOf("isbn");
+    const int titleColumn = headers.indexOf("title");
+    int authorColumn = headers.indexOf("author");
+    if (authorColumn < 0) authorColumn = headers.indexOf("authors");
+    const int sourceColumn = headers.indexOf("engine source");
+    const int coverColumn = headers.indexOf("cover url");
+    if (isbnColumn < 0 || titleColumn < 0) {
+        QMessageBox::warning(this, "Import CSV Failed", "CSV must include ISBN and Title columns.");
+        return;
+    }
+
+    int importedCount = 0;
+    int skippedCount = 0;
+    for (qsizetype index = 1; index < records.size(); ++index) {
+        const QStringList &record = records.at(index);
+        const auto valueAt = [&record](int column) {
+            return column >= 0 && column < record.size() ? record.at(column).trimmed() : QString();
+        };
+
+        BookInfo info;
+        info.found = true;
+        info.isbn = valueAt(isbnColumn);
+        info.title = valueAt(titleColumn);
+        info.authors = valueAt(authorColumn);
+        info.engineSource = valueAt(sourceColumn);
+        info.coverUrl = valueAt(coverColumn);
+        if (info.isbn.isEmpty() || info.title.isEmpty()) {
+            ++skippedCount;
+            continue;
+        }
+
+        const BookInfo existing = m_dbManager->getBookByIsbn(info.isbn);
+        if (existing.found && existing.coverUrl != info.coverUrl) {
+            CoverCache::removeImage(info.isbn);
+        }
+        if (!m_dbManager->saveImportedBookRecord(info)) {
+            ++skippedCount;
+            continue;
+        }
+
+        m_bookshelfWidget->addBookToShelf(info, true);
+        if (!info.coverUrl.isEmpty() && !CoverCache::contains(info.isbn)) {
+            m_metadataProvider->cacheCoverForBook(info.isbn, info.coverUrl);
+        }
+        ++importedCount;
+    }
+
+    if (importedCount > 0 && m_syncManager->isAuthenticated()) {
+        handleSyncQueueFlush();
+    }
+    QMessageBox::information(
+        this, "Import CSV",
+        QString("Imported %1 books; skipped %2 invalid rows.")
+            .arg(importedCount).arg(skippedCount));
 }
 
 void MainWindow::applyPaletteStyles(const QPalette &palette)

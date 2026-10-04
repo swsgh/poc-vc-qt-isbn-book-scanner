@@ -8,7 +8,8 @@ A Qt 6 desktop application that scans EAN-13 book barcodes, looks up book metada
 - Enter a 10- or 13-digit ISBN manually in the scanner panel and select **Lookup** when scanning is unavailable.
 - The top-right cogwheel menu contains account and sync actions.
 - Book metadata lookup through the Open Library and Google Books providers.
-- Local SQLite storage for book details, cover images, and a persistent sync queue.
+- Import and export the library as CSV from the cogwheel menu.
+- Local SQLite storage for book details, cover URLs, and a persistent sync queue; downloaded images live in the local cache.
 - Search by title, author, or ISBN; inspect details and remove books.
 - Register and log in to a sync account, upload books, download remote changes, and synchronize deletions.
 
@@ -41,3 +42,7 @@ The SQLite database is shared with the Python scanner. On Windows its path is `%
 Start the companion `poc-vc-py-bookshelf-sync-server` using its README instructions. Register and Log In prompt for the server URL as well as account credentials; the URL is saved in system settings and shared with the Python app. `BOOKSHELF_SYNC_URL` overrides the saved URL/default (`http://127.0.0.1:8000`). Use an `http://` or `https://` URL. HTTPS requires a Qt TLS backend and a certificate trusted by the system; certificate checks remain enabled, and redirects cannot downgrade HTTPS to HTTP. The Compose server itself uses HTTP, so HTTPS requires a TLS-terminating proxy or HTTPS-enabled hosting in front of it. Registration signs in automatically; login performs a differential sync, and **Sync now** flushes queued local actions and pulls remote updates. Authentication tokens are held in memory and are cleared when you log out or close the app.
 
 On the first sync for an account, remote records are downloaded and local books missing from the server are uploaded. Local pending actions take precedence over conflicting remote updates. This is a proof of concept; the companion server uses a development JWT secret and should not be exposed beyond a trusted environment without secure configuration.
+
+## CSV Import and Export
+
+Use **Import CSV...** and **Export CSV...** in the cogwheel menu. CSV files contain `ISBN`, `Title`, `Author`, `Engine Source`, and `Cover URL` columns. Import requires `ISBN` and `Title`; imported books are queued for synchronization.

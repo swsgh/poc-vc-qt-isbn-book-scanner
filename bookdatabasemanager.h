@@ -20,6 +20,7 @@ public:
     // Returns true if the ISBN primary key exists in the database table rows
     bool hasBookInLocalDatabase(const QString &isbn);
     bool deleteBookRecord(const QString &isbn);
+    bool saveImportedBookRecord(const BookInfo &info);
     bool clearBooksAndQueueDeletes();
     void addPendingUpload(const QString &isbn);
     void addPendingDelete(const QString &isbn);
