@@ -15,8 +15,12 @@
 #include <QMessageBox>
 #include <QLineEdit>
 #include <QSet>
-#include <QInputDialog>
+#include <QDialog>
+#include <QFormLayout>
+#include <QDialogButtonBox>
+#include <QCheckBox>
 #include <QMenu>
+#include <QGridLayout>
 #include <QAction>
 #include <QApplication>
 #include <QEvent>
@@ -209,6 +213,7 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
         "QMainWindow { background-color: %1; }"
         "QWidget { color: %2; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }"
         "QFrame { border: 1px solid %3; border-radius: 8px; background-color: %4; }"
+        "QLabel { background-color: transparent; border: none; padding: 0px; }"
         "QPushButton { background-color: %5; color: %6; border: 1px solid %3; "
         "border-radius: 6px; padding: 10px; font-weight: bold; }"
         "QPushButton:hover { background-color: %7; color: %8; }"
@@ -364,69 +369,124 @@ void MainWindow::updateSyncConnectionIndicator(bool connected)
 void MainWindow::promptRegisterAccount()
 {
     QString serverUrl;
-    if (!promptSyncServerUrl(serverUrl)) return;
-
-    bool accepted = false;
-    const QString username = QInputDialog::getText(
-        this, "Register Sync Account", "Username:", QLineEdit::Normal, {}, &accepted);
-    if (!accepted || username.trimmed().isEmpty()) return;
-
-    const QString password = QInputDialog::getText(
-        this, "Register Sync Account", "Password:", QLineEdit::Password, {}, &accepted);
-    if (!accepted || password.isEmpty()) return;
+    QString username;
+    QString password;
+    if (!promptSyncCredentials(true, serverUrl, username, password)) return;
 
     m_syncManager->setSyncCheckpoint(
-        m_dbManager->getSyncCheckpoint(username.trimmed()),
-        m_dbManager->hasSyncCheckpoint(username.trimmed()));
+        m_dbManager->getSyncCheckpoint(username),
+        m_dbManager->hasSyncCheckpoint(username));
     m_syncManager->setServerUrl(serverUrl);
-    m_syncManager->registerAccount(username.trimmed(), password);
+    m_syncManager->registerAccount(username, password);
 }
 
 void MainWindow::promptLoginAccount()
 {
     QString serverUrl;
-    if (!promptSyncServerUrl(serverUrl)) return;
-
-    bool accepted = false;
-    const QString username = QInputDialog::getText(
-        this, "Log In to Sync", "Username:", QLineEdit::Normal, {}, &accepted);
-    if (!accepted || username.trimmed().isEmpty()) return;
-
-    const QString password = QInputDialog::getText(
-        this, "Log In to Sync", "Password:", QLineEdit::Password, {}, &accepted);
-    if (!accepted || password.isEmpty()) return;
+    QString username;
+    QString password;
+    if (!promptSyncCredentials(false, serverUrl, username, password)) return;
 
     m_syncManager->setSyncCheckpoint(
-        m_dbManager->getSyncCheckpoint(username.trimmed()),
-        m_dbManager->hasSyncCheckpoint(username.trimmed()));
+        m_dbManager->getSyncCheckpoint(username),
+        m_dbManager->hasSyncCheckpoint(username));
     m_syncManager->setServerUrl(serverUrl);
-    m_syncManager->loginAccount(username.trimmed(), password);
+    m_syncManager->loginAccount(username, password);
 }
 
-bool MainWindow::promptSyncServerUrl(QString &serverUrl)
+bool MainWindow::promptSyncCredentials(bool registering, QString &serverUrl,
+                                       QString &username, QString &password)
 {
     QSettings settings;
     const QString environmentUrl = qEnvironmentVariable("BOOKSHELF_SYNC_URL");
-    const QString defaultUrl = environmentUrl.isEmpty()
-        ? settings.value("sync/server_url", "http://127.0.0.1:8000").toString()
-        : environmentUrl;
-    bool accepted = false;
-    const QString enteredUrl = QInputDialog::getText(
-        this, "Sync Server", "Server URL:", QLineEdit::Normal, defaultUrl, &accepted);
-    if (!accepted) return false;
+    const QString defaultUrl = !environmentUrl.isEmpty()
+        ? environmentUrl
+        : settings.value("sync/server_url", "http://127.0.0.1:8000").toString();
+    const QString rememberedUsername = settings.value("sync/username").toString();
 
-    const QString normalizedUrl = enteredUrl.trimmed();
-    const QUrl url(normalizedUrl);
-    const QString scheme = url.scheme().toLower();
-    if (!url.isValid() || url.host().isEmpty()
-        || (scheme != "http" && scheme != "https")) {
-        QMessageBox::warning(
-            this, "Invalid Server URL", "Enter an absolute http:// or https:// server URL.");
-        return false;
+    QDialog dialog(this);
+    dialog.setWindowTitle(registering ? "Register Sync Account" : "Log In to Sync");
+    dialog.setMinimumWidth(560);
+    dialog.setStyleSheet("QDialog QLabel { background-color: transparent; border: none; }");
+
+    QLineEdit serverUrlInput(&dialog);
+    serverUrlInput.setText(defaultUrl);
+    QLineEdit usernameInput(&dialog);
+    usernameInput.setText(rememberedUsername);
+    QLineEdit passwordInput(&dialog);
+    passwordInput.setEchoMode(QLineEdit::Password);
+    QLineEdit *confirmationInput = nullptr;
+    if (registering) {
+        confirmationInput = new QLineEdit(&dialog);
+        confirmationInput->setEchoMode(QLineEdit::Password);
     }
+    QCheckBox rememberUsername("Remember username", &dialog);
+    rememberUsername.setChecked(!rememberedUsername.isEmpty());
 
-    serverUrl = normalizedUrl;
+    auto *form = new QGridLayout;
+    form->setColumnMinimumWidth(0, 130);
+    form->setColumnStretch(1, 1);
+    const auto addField = [form, &dialog](int row, const QString &labelText,
+                                          QLineEdit *field) {
+        auto *label = new QLabel(labelText, &dialog);
+        label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        label->setFrameShape(QFrame::NoFrame);
+        label->setAutoFillBackground(false);
+        label->setStyleSheet(
+            "QLabel { background-color: transparent; border: none; padding: 0px; }");
+        form->addWidget(label, row, 0);
+        form->addWidget(field, row, 1);
+    };
+    addField(0, "Server URL:", &serverUrlInput);
+    addField(1, "Username:", &usernameInput);
+    addField(2, "Password:", &passwordInput);
+    int nextRow = 3;
+    if (registering) {
+        addField(nextRow++, "Confirm password:", confirmationInput);
+    }
+    form->addWidget(&rememberUsername, nextRow, 1);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->addLayout(form);
+    auto *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(buttons);
+
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, [&]() {
+        const QString enteredUrl = serverUrlInput.text().trimmed();
+        const QUrl url(enteredUrl);
+        const QString scheme = url.scheme().toLower();
+        if (!url.isValid() || url.host().isEmpty()
+            || (scheme != "http" && scheme != "https")) {
+            QMessageBox::warning(
+                &dialog, "Invalid Server URL",
+                "Enter an absolute http:// or https:// server URL.");
+            return;
+        }
+        if (usernameInput.text().trimmed().isEmpty() || passwordInput.text().isEmpty()) {
+            QMessageBox::warning(&dialog, dialog.windowTitle(), "Enter a username and password.");
+            return;
+        }
+        if (registering && passwordInput.text() != confirmationInput->text()) {
+            QMessageBox::warning(&dialog, dialog.windowTitle(), "The passwords do not match.");
+            return;
+        }
+        dialog.accept();
+    });
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted) return false;
+
+    serverUrl = serverUrlInput.text().trimmed();
+    while (serverUrl.endsWith('/')) serverUrl.chop(1);
+    username = usernameInput.text().trimmed();
+    password = passwordInput.text();
     settings.setValue("sync/server_url", serverUrl);
+    if (rememberUsername.isChecked()) {
+        settings.setValue("sync/username", username);
+    } else {
+        settings.remove("sync/username");
+    }
     return true;
 }
 

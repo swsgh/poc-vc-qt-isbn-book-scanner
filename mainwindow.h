@@ -34,7 +34,6 @@ private slots:
     void submitManualIsbn();
     void promptRegisterAccount();
     void promptLoginAccount();
-    bool promptSyncServerUrl(QString &serverUrl);
     void syncNow();
     void logoutSync();
     void toggleCameraView();
@@ -51,6 +50,8 @@ private:
     void setupConnections();
     void setupSync();
     void populateBookshelf();
+    bool promptSyncCredentials(bool registering, QString &serverUrl,
+                               QString &username, QString &password);
     void applyPaletteStyles(const QPalette &palette);
     void applyStatusStyle(const QString &text, const QString &textColor = {});
     void updateSyncConnectionIndicator(bool connected);
