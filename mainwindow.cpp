@@ -3,7 +3,8 @@
 #include "bookmetadataprovider.h"
 #include "bookdatabasemanager.h"
 #include "bookshelfwidget.h"
-#include "bookdetailssidebar.h" // NEW: Added inclusion for decoupled side widget panel class
+#include "bookdetailssidebar.h"
+#include "booksyncmanager.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -130,6 +131,40 @@ MainWindow::MainWindow(QWidget *parent)
     connect(searchBar, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
 
     m_scannerView->startCapture();
+
+    m_syncManager = new BookSyncManager("http://127.0.0.1:8000", this);
+
+    // Automatically upload scans to the cloud backend after local DB confirmation updates
+    connect(m_dbManager, &BookDatabaseManager::bookSavedSuccessfully, this, [this](const QString &isbn) {
+        BookInfo freshRecord = m_dbManager->getBookByIsbn(isbn);
+        if (freshRecord.found) {
+            m_syncManager->uploadBookToServer(freshRecord); // Push cloud payload
+        }
+    });
+
+    // Update cloud backend when a local book deletion occurs
+    connect(m_detailsSidebar, &BookDetailsSidebar::deleteBookRequested, this, [this](const QString &isbn) {
+        m_syncManager->deleteBookFromServer(isbn); // Remove cloud payload
+    });
+
+    // Capture remote download data packets to modify local caches seamlessly
+    connect(m_syncManager, &BookSyncManager::remoteBookUpdatesDownloaded, this,
+            [this](const QList<BookInfo> &booksToSave, const QStringList &isbnsToDelete) {
+
+                // Clean out deleted books from local storage
+                for (const QString &isbn : isbnsToDelete) {
+                    m_dbManager->deleteBookRecord(isbn);
+                    m_bookshelfWidget->removeBookFromShelf(isbn);
+                }
+
+                // Add or update remote entries locally
+                for (const BookInfo &book : booksToSave) {
+                    m_dbManager->saveBookRecord(book);
+                    m_bookshelfWidget->addBookToShelf(book, true);
+                }
+            });
+
+    m_syncManager->loginAccount("stefan", "secret");
 }
 
 void MainWindow::updateStatusLabel(const QString &text, bool isError)

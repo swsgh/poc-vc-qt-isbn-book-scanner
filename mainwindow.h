@@ -8,7 +8,8 @@ class BarcodeScannerView;
 class BookMetadataProvider;
 class BookDatabaseManager;
 class BookshelfWidget;
-class BookDetailsSidebar; // Forward declare the new class
+class BookDetailsSidebar;
+class BookSyncManager;
 class QLabel;
 class QLineEdit;
 
@@ -31,9 +32,9 @@ private:
     BookMetadataProvider* m_metadataProvider;
     BookDatabaseManager* m_dbManager;
     BookshelfWidget* m_bookshelfWidget;
-    QLabel* m_isbnLabel;
-
     BookDetailsSidebar* m_detailsSidebar;
+    BookSyncManager* m_syncManager;
+    QLabel* m_isbnLabel;
 };
 
 #endif // MAINWINDOW_H
