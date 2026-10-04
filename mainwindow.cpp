@@ -95,7 +95,7 @@ void MainWindow::setupUi()
     m_syncConnectionIndicator = new QLabel(centralWidget);
     m_syncConnectionIndicator->setObjectName("syncConnectionIndicator");
     m_syncConnectionIndicator->setFixedSize(12, 12);
-    m_syncConnectionIndicator->setToolTip("Checking sync server connection...");
+    m_syncConnectionIndicator->setToolTip("Log in to check sync server");
     m_syncConnectionIndicator->setAccessibleName("Sync server connection status");
     m_syncConnectionIndicator->setStyleSheet(
         "QLabel { background-color: #8a929c; border-radius: 6px; }");
@@ -358,7 +358,6 @@ void MainWindow::setupSync()
             [this](const QString &message) {
                 updateStatusLabel("Sync failed: " + message, true);
             });
-    m_syncManager->checkServerConnection();
 }
 
 void MainWindow::updateSyncConnectionIndicator(bool connected)
@@ -518,6 +517,10 @@ void MainWindow::logoutSync()
         return;
     }
     m_syncManager->logoutAccount();
+    m_syncConnectionIndicator->setStyleSheet(
+        "QLabel { background-color: #8a929c; border-radius: 6px; }");
+    m_syncConnectionIndicator->setToolTip("Log in to check sync server");
+    m_syncConnectionIndicator->setAccessibleDescription("Log in to check sync server");
     m_registerAction->setEnabled(true);
     m_loginAction->setEnabled(true);
     m_syncAction->setEnabled(false);

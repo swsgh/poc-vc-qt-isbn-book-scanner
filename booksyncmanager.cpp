@@ -30,11 +30,10 @@ BookSyncManager::BookSyncManager(const QString &serverUrl, QObject *parent)
     : QObject(parent), m_serverUrl(serverUrl), m_lastSyncTimestamp(0)
 {
     m_networkManager = new QNetworkAccessManager(this);
-    auto *healthCheckTimer = new QTimer(this);
-    healthCheckTimer->setInterval(30000);
-    connect(healthCheckTimer, &QTimer::timeout,
+    m_healthCheckTimer = new QTimer(this);
+    m_healthCheckTimer->setInterval(30000);
+    connect(m_healthCheckTimer, &QTimer::timeout,
             this, &BookSyncManager::checkServerConnection);
-    healthCheckTimer->start();
 }
 
 void BookSyncManager::setServerUrl(const QString &serverUrl)
@@ -48,7 +47,7 @@ void BookSyncManager::setServerUrl(const QString &serverUrl)
 
 void BookSyncManager::checkServerConnection()
 {
-    if (m_healthCheckInFlight) return;
+    if (!isAuthenticated() || m_healthCheckInFlight) return;
 
     m_healthCheckInFlight = true;
     const QString checkedServerUrl = m_serverUrl;
@@ -61,6 +60,7 @@ void BookSyncManager::checkServerConnection()
             && response.object().value("status").toString() == "ok";
         reply->deleteLater();
 
+        if (!isAuthenticated()) return;
         if (checkedServerUrl != m_serverUrl) {
             checkServerConnection();
             return;
@@ -147,6 +147,8 @@ void BookSyncManager::loginAccount(const QString &username, const QString &passw
         }
 
         m_username = username;
+        m_healthCheckTimer->start();
+        checkServerConnection();
         emit authStatusMessage(QString("Signed in to sync as %1.").arg(username), false);
         emit loginSuccess();
         triggerDifferentialSync();
@@ -155,10 +157,13 @@ void BookSyncManager::loginAccount(const QString &username, const QString &passw
 
 void BookSyncManager::logoutAccount()
 {
+    m_healthCheckTimer->stop();
     m_token.clear();
     m_username.clear();
     m_lastSyncTimestamp = 0;
     m_hasSyncCheckpoint = false;
+    m_hasServerConnectionResult = false;
+    m_serverConnected = false;
     emit authStatusMessage("Signed out of sync.", false);
 }
 

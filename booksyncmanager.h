@@ -6,6 +6,8 @@
 #include <QNetworkReply>
 #include "bookinfo.h"
 
+class QTimer;
+
 class BookSyncManager : public QObject
 {
     Q_OBJECT
@@ -52,6 +54,7 @@ private:
     bool m_healthCheckInFlight = false;
     bool m_hasServerConnectionResult = false;
     bool m_serverConnected = false;
+    QTimer *m_healthCheckTimer = nullptr;
     QNetworkAccessManager *m_networkManager;
 
     // Private helpers to build injection-safe header requirements
