@@ -27,9 +27,9 @@ signals:
 
 private slots:
     void handlePrimarySuccess(const BookInfo &info, const QString &urlSmall, const QString &urlMedium);
-    void handlePrimaryFailure(const QString &errorMsg);
+    void handlePrimaryFailure([[maybe_unused]] const QString &errorMsg);
     void handleFallbackSuccess(const BookInfo &info, const QString &urlSmall, const QString &urlMedium);
-    void handleFallbackFailure(const QString &errorMsg);
+    void handleFallbackFailure([[maybe_unused]] const QString &errorMsg);
     void handleMediumCoverFinished(QNetworkReply* reply);
     void handleSmallCoverFinished(QNetworkReply* reply);
     void resetScannerCooldown();

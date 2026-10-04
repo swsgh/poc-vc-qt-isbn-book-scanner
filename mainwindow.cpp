@@ -132,14 +132,6 @@ void MainWindow::setupConnections()
 
 void MainWindow::setupSync()
 {
-    connect(m_dbManager, &BookDatabaseManager::bookSavedSuccessfully, this, [this](const QString &isbn) {
-        const BookInfo freshRecord = m_dbManager->getBookByIsbn(isbn);
-        if (freshRecord.found && m_syncManager) {
-            m_dbManager->addPendingUpload(isbn);
-            m_syncManager->uploadBookToServer(freshRecord);
-        }
-    });
-
     connect(m_syncManager, &BookSyncManager::uploadSucceeded, m_dbManager, &BookDatabaseManager::removePendingAction);
     connect(m_syncManager, &BookSyncManager::deleteSucceeded, m_dbManager, &BookDatabaseManager::removePendingAction);
     connect(m_syncManager, &BookSyncManager::loginSuccess, this, &MainWindow::handleSyncQueueFlush);
@@ -174,6 +166,11 @@ void MainWindow::handleBookSaved(const QString &isbn)
     const BookInfo freshRecord = m_dbManager->getBookByIsbn(isbn);
     if (freshRecord.found) {
         m_bookshelfWidget->addBookToShelf(freshRecord, true);
+
+        if (m_syncManager) {
+            m_dbManager->addPendingUpload(isbn);
+            m_syncManager->uploadBookToServer(freshRecord);
+        }
     }
 
     applyStatusStyle("Scan complete! Local database repository successfully updated.",
