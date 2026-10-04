@@ -2,7 +2,6 @@
 #include "barcodescannerview.h"
 #include "bookmetadataprovider.h"
 #include "bookdatabasemanager.h"
-#include "bookdetailssidebar.h"
 #include "booksyncmanager.h"
 #include "booksynccoordinator.h"
 #include "bookcollectionmodel.h"
@@ -187,9 +186,23 @@ void MainWindow::setupUi()
 
     bottomRowLayout->addWidget(bookshelfAreaContainer, 3);
 
-    m_detailsSidebar = new BookDetailsSidebar(this);
-    m_detailsSidebar->setVisible(false);
-    bottomRowLayout->addWidget(m_detailsSidebar, 1);
+    m_bookDetailsQuickWidget = new QQuickWidget(bottomRowContainer);
+    m_bookDetailsQuickWidget->setMinimumWidth(260);
+    m_bookDetailsQuickWidget->setMaximumWidth(320);
+    m_bookDetailsQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    m_bookDetailsQuickWidget->rootContext()->setContextProperty("bookSelection", this);
+    connect(m_bookDetailsQuickWidget, &QQuickWidget::statusChanged, this,
+            [this](QQuickWidget::Status status) {
+                if (status == QQuickWidget::Error) {
+                    for (const QQmlError &error : m_bookDetailsQuickWidget->errors()) {
+                        qWarning().noquote() << error.toString();
+                    }
+                }
+            });
+    m_bookDetailsQuickWidget->setSource(
+        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/BookDetailsView.qml")));
+    m_bookDetailsQuickWidget->setVisible(false);
+    bottomRowLayout->addWidget(m_bookDetailsQuickWidget, 1);
 
     mainVerticalLayout->addWidget(bottomRowContainer, 1);
 
@@ -342,7 +355,6 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
         "QPushButton:hover { background-color: %4; color: %5; }")
         .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
 
-    m_detailsSidebar->applyPalette(palette);
     applyStatusStyle(m_statusLabel->text(), m_statusTextColor);
     m_applyingPalette = false;
 }
@@ -418,14 +430,17 @@ void MainWindow::setupConnections()
         updateStatusLabel(err, true);
     });
 
-    connect(m_detailsSidebar, &BookDetailsSidebar::deleteBookRequested, this, &MainWindow::removeBookRecord);
     connect(m_searchBar, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
     connect(m_metadataProvider, &BookMetadataProvider::coverCached, this,
             [this](const QString &isbn) {
                 const BookInfo info = m_dbManager->getBookByIsbn(isbn);
                 if (info.found) m_bookCollectionModel->addBook(info, false);
-                m_detailsSidebar->refreshCover(isbn);
+                if (m_selectedBook.isbn == isbn) {
+                    emit selectedBookChanged();
+                }
             });
+    connect(this, &MainWindow::selectedBookChanged, m_bookDetailsQuickWidget,
+            [this]() { m_bookDetailsQuickWidget->setVisible(selectedBookVisible()); });
 }
 
 void MainWindow::setupSync()
@@ -441,7 +456,7 @@ void MainWindow::setupSync()
         connect(m_syncCoordinator, &BookSyncCoordinator::collectionBookRemoved, this,
             [this](const QString &isbn) { m_bookCollectionModel->removeBook(isbn); });
         connect(m_syncCoordinator, &BookSyncCoordinator::bookDetailsCloseRequested,
-            m_detailsSidebar, &BookDetailsSidebar::closeSidebar);
+                this, &MainWindow::clearSelectedBook);
     connect(m_syncCoordinator, &BookSyncCoordinator::syncSummary, this,
             [this](const QString &message) { statusBar()->showMessage(message, 10000); });
     connect(m_syncManager, &BookSyncManager::serverConnectionChanged,
@@ -579,7 +594,8 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
 void MainWindow::displayBookDetails(const BookInfo &info)
 {
     applyStatusStyle(QString("📖 Successfully scanned: %1").arg(info.title));
-    m_detailsSidebar->updateDetails(info);
+    m_selectedBook = info;
+    emit selectedBookChanged();
 }
 
 void MainWindow::removeBookRecord(const QString &isbn)
@@ -606,6 +622,67 @@ void MainWindow::selectBook(const QString &isbn)
 {
     const BookInfo info = m_dbManager->getBookByIsbn(isbn);
     if (info.found) {
-        m_detailsSidebar->updateDetails(info);
+        m_selectedBook = info;
+        emit selectedBookChanged();
     }
+}
+
+void MainWindow::clearSelectedBook()
+{
+    if (!m_selectedBook.found) {
+        return;
+    }
+    m_selectedBook = BookInfo{};
+    emit selectedBookChanged();
+}
+
+void MainWindow::removeSelectedBook()
+{
+    if (m_selectedBook.found) {
+        removeBookRecord(m_selectedBook.isbn);
+    }
+}
+
+bool MainWindow::selectedBookVisible() const
+{
+    return m_selectedBook.found;
+}
+
+QString MainWindow::selectedBookTitle() const
+{
+    return m_selectedBook.title;
+}
+
+QString MainWindow::selectedBookAuthors() const
+{
+    return m_selectedBook.authors;
+}
+
+QString MainWindow::selectedBookIsbn() const
+{
+    return m_selectedBook.isbn;
+}
+
+QString MainWindow::selectedBookMetadata() const
+{
+    QStringList metadata;
+    if (!m_selectedBook.publicationDate.isEmpty()) {
+        metadata.append("First published: " + m_selectedBook.publicationDate);
+    }
+    if (!m_selectedBook.publisher.isEmpty()) {
+        metadata.append("Publisher: " + m_selectedBook.publisher);
+    }
+    if (m_selectedBook.pageCount > 0) {
+        metadata.append(QString("Pages: %1").arg(m_selectedBook.pageCount));
+    }
+    return metadata.join('\n');
+}
+
+QUrl MainWindow::selectedBookCoverSource() const
+{
+    if (!m_selectedBook.found || m_selectedBook.coverUrl.isEmpty()
+        || !CoverCache::contains(m_selectedBook.isbn)) {
+        return {};
+    }
+    return QUrl::fromLocalFile(CoverCache::filePath(m_selectedBook.isbn));
 }

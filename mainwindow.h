@@ -2,12 +2,12 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QUrl>
 #include "bookinfo.h"
 
 class BarcodeScannerView;
 class BookMetadataProvider;
 class BookDatabaseManager;
-class BookDetailsSidebar;
 class BookSyncManager;
 class BookSyncCoordinator;
 class BookCollectionModel;
@@ -30,6 +30,25 @@ public:
     ~MainWindow() override = default;
 
     Q_INVOKABLE void selectBook(const QString &isbn);
+    Q_INVOKABLE void clearSelectedBook();
+    Q_INVOKABLE void removeSelectedBook();
+
+    Q_PROPERTY(bool selectedBookVisible READ selectedBookVisible NOTIFY selectedBookChanged)
+    Q_PROPERTY(QString selectedBookTitle READ selectedBookTitle NOTIFY selectedBookChanged)
+    Q_PROPERTY(QString selectedBookAuthors READ selectedBookAuthors NOTIFY selectedBookChanged)
+    Q_PROPERTY(QString selectedBookIsbn READ selectedBookIsbn NOTIFY selectedBookChanged)
+    Q_PROPERTY(QString selectedBookMetadata READ selectedBookMetadata NOTIFY selectedBookChanged)
+    Q_PROPERTY(QUrl selectedBookCoverSource READ selectedBookCoverSource NOTIFY selectedBookChanged)
+
+    bool selectedBookVisible() const;
+    QString selectedBookTitle() const;
+    QString selectedBookAuthors() const;
+    QString selectedBookIsbn() const;
+    QString selectedBookMetadata() const;
+    QUrl selectedBookCoverSource() const;
+
+signals:
+    void selectedBookChanged();
 
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
@@ -63,12 +82,13 @@ private:
     BarcodeScannerView* m_scannerView = nullptr;
     BookMetadataProvider* m_metadataProvider = nullptr;
     BookDatabaseManager* m_dbManager = nullptr;
-    BookDetailsSidebar* m_detailsSidebar = nullptr;
     BookSyncManager* m_syncManager = nullptr;
     BookSyncCoordinator* m_syncCoordinator = nullptr;
     BookCollectionModel* m_bookCollectionModel = nullptr;
     QSortFilterProxyModel* m_bookFilterModel = nullptr;
     QQuickWidget* m_bookshelfQuickWidget = nullptr;
+    QQuickWidget* m_bookDetailsQuickWidget = nullptr;
+    BookInfo m_selectedBook;
     QWidget* m_scannerPanel = nullptr;
     QLabel* m_statusLabel = nullptr;
     QLabel* m_syncConnectionIndicator = nullptr;
