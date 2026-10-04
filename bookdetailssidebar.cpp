@@ -44,15 +44,21 @@ BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
     m_detailTitleLabel->setFont(QFont("Segoe UI", 11, QFont::Bold));
     m_detailTitleLabel->setWordWrap(true);
     m_detailTitleLabel->setAlignment(Qt::AlignCenter);
+    m_detailTitleLabel->setTextInteractionFlags(
+        Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
     m_detailTitleLabel->setStyleSheet("border: none; padding-top: 10px;");
 
     m_detailAuthorLabel = new QLabel("", m_container);
     m_detailAuthorLabel->setWordWrap(true);
     m_detailAuthorLabel->setAlignment(Qt::AlignCenter);
+    m_detailAuthorLabel->setTextInteractionFlags(
+        Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
     m_detailAuthorLabel->setStyleSheet("border: none; font-style: italic;");
 
     m_detailIsbnLabel = new QLabel("", m_container);
     m_detailIsbnLabel->setAlignment(Qt::AlignCenter);
+    m_detailIsbnLabel->setTextInteractionFlags(
+        Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
     m_detailIsbnLabel->setStyleSheet(
         "border: none; font-family: monospace; font-size: 12px; padding-top: 5px;");
 
@@ -141,7 +147,7 @@ void BookDetailsSidebar::updateDetails(const BookInfo &info)
     setCoverForBook(info);
 
     m_detailTitleLabel->setText(info.title);
-    m_detailAuthorLabel->setText(QString("by %1").arg(info.authors.isEmpty() ? "Unknown" : info.authors));
+    m_detailAuthorLabel->setText(info.authors.isEmpty() ? "Unknown" : info.authors);
     m_detailIsbnLabel->setText("ISBN: " + info.isbn);
 }
 
