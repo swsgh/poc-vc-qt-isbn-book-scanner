@@ -5,7 +5,7 @@
 #include <QUrl>
 #include "bookinfo.h"
 
-class BarcodeScannerView;
+class BarcodeScannerController;
 class BookMetadataProvider;
 class BookDatabaseManager;
 class BookSyncManager;
@@ -79,7 +79,7 @@ private:
     void updateSyncConnectionIndicator(bool connected);
     void handleLoginSuccess();
 
-    BarcodeScannerView* m_scannerView = nullptr;
+    BarcodeScannerController* m_scannerController = nullptr;
     BookMetadataProvider* m_metadataProvider = nullptr;
     BookDatabaseManager* m_dbManager = nullptr;
     BookSyncManager* m_syncManager = nullptr;

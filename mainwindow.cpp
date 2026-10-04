@@ -1,5 +1,5 @@
 #include "mainwindow.h"
-#include "barcodescannerview.h"
+#include "barcodescannercontroller.h"
 #include "bookmetadataprovider.h"
 #include "bookdatabasemanager.h"
 #include "booksyncmanager.h"
@@ -58,6 +58,7 @@ void MainWindow::changeEvent(QEvent *event)
 
 void MainWindow::initializeApplication()
 {
+    m_scannerController = new BarcodeScannerController(this);
     m_bookCollectionModel = new BookCollectionModel(this);
     m_bookFilterModel = new QSortFilterProxyModel(this);
     m_bookFilterModel->setSourceModel(m_bookCollectionModel);
@@ -122,10 +123,25 @@ void MainWindow::setupUi()
     scannerLayout->setContentsMargins(0, 0, 0, 0);
     scannerLayout->setSpacing(6);
 
-    m_scannerView = new BarcodeScannerView(m_scannerPanel);
-    m_scannerView->setMaximumWidth(932);
-    m_scannerView->setMaximumHeight(260);
-    scannerLayout->addWidget(m_scannerView, 0, Qt::AlignHCenter);
+    auto *scannerQuickWidget = new QQuickWidget(m_scannerPanel);
+    scannerQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    scannerQuickWidget->setMinimumSize(320, 240);
+    scannerQuickWidget->setMaximumHeight(260);
+    connect(scannerQuickWidget, &QQuickWidget::statusChanged, this,
+            [this, scannerQuickWidget](QQuickWidget::Status status) {
+                if (status == QQuickWidget::Error) {
+                    for (const QQmlError &error : scannerQuickWidget->errors()) {
+                        qWarning().noquote() << error.toString();
+                    }
+                } else if (status == QQuickWidget::Ready && scannerQuickWidget->rootObject()) {
+                    scannerQuickWidget->rootObject()->setProperty(
+                        "scannerController",
+                        QVariant::fromValue(static_cast<QObject *>(m_scannerController)));
+                }
+            });
+    scannerQuickWidget->setSource(
+        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/ScannerPreview.qml")));
+    scannerLayout->addWidget(scannerQuickWidget, 0, Qt::AlignHCenter);
 
     auto *manualLookupLayout = new QHBoxLayout;
     m_manualIsbnInput = new QLineEdit(m_scannerPanel);
@@ -369,13 +385,13 @@ void MainWindow::toggleCameraView()
     m_scannerPanel->setVisible(!isVisible);
 
     if (isVisible) {
-        m_scannerView->stopCapture();
+        m_scannerController->stopCapture();
         m_cameraToggleButton->setText("📷 Show Camera Preview");
         m_cameraToggleButton->setToolTip("Open the scanner view and start camera capture");
     } else {
         m_cameraToggleButton->setText("🙈 Hide Camera Preview");
         m_cameraToggleButton->setToolTip("Hide the scanner view and stop camera capture");
-        m_scannerView->startCapture();
+        m_scannerController->startCapture();
     }
 }
 
@@ -417,14 +433,14 @@ void MainWindow::setupDatabase()
 
 void MainWindow::setupConnections()
 {
-    connect(m_scannerView, &BarcodeScannerView::isbnScanned, this, [this](const QString &isbn) {
+    connect(m_scannerController, &BarcodeScannerController::isbnScanned, this, [this](const QString &isbn) {
         if (isbn == "ERROR: Camera permission denied.") {
             applyStatusStyle("No camera detected. Use the manual ISBN field instead.", "#ffaa55");
             return;
         }
         m_metadataProvider->lookupIsbn(isbn);
     });
-    connect(m_scannerView, &BarcodeScannerView::cameraUnavailable, this,
+    connect(m_scannerController, &BarcodeScannerController::cameraUnavailable, this,
             [this](const QString &message) { applyStatusStyle(message, "#ffaa55"); });
     connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged, this, &MainWindow::updateStatusLabel);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &MainWindow::displayBookDetails);

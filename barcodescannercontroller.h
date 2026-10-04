@@ -18,8 +18,8 @@ public:
     explicit BarcodeScannerController(QObject *parent = nullptr);
     ~BarcodeScannerController() override;
 
-    void startCapture();
-    void stopCapture();
+    Q_INVOKABLE void startCapture();
+    Q_INVOKABLE void stopCapture();
 
 signals:
     void frameReady(const QImage &image);

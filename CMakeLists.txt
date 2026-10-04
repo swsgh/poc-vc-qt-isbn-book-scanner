@@ -56,8 +56,6 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     synccredentialsdialog.cpp
     barcodescannercontroller.h
     barcodescannercontroller.cpp
-    barcodescannerview.h
-    barcodescannerview.cpp
     bookmetadataprovider.h
     bookmetadataprovider.cpp
     bookinfo.h
@@ -88,9 +86,13 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
 qt_add_qml_module(ISBNBookScanner
     URI ISBNBookScanner
     VERSION 1.0
+    SOURCES
+        scannerframeitem.h
+        scannerframeitem.cpp
     QML_FILES
         BookshelfView.qml
         BookDetailsView.qml
+        ScannerPreview.qml
 )
 
 # 4. Target Link Libraries & Platform Setup
