@@ -53,8 +53,7 @@ QWidget *BookshelfWidget::createBookCard(const BookInfo &info)
 {
     QWidget *bookCard = new QWidget(m_scrollContainer);
     bookCard->setFixedSize(120, 142);
-    bookCard->setStyleSheet("QWidget { background: #242424; border: 1px solid #3a3a3a; border-radius: 6px; }"
-                            "QWidget:hover { border: 1px solid #3498db; background: #2d2d2d; }");
+    bookCard->setStyleSheet("QWidget { background: transparent; border: none; }");
     bookCard->setObjectName("card_" + info.isbn);
     bookCard->setCursor(Qt::PointingHandCursor);
     bookCard->setProperty("bookData", QVariant::fromValue(info));
@@ -69,6 +68,7 @@ QWidget *BookshelfWidget::createBookCard(const BookInfo &info)
     coverLabel->setFixedSize(110, 132);
     coverLabel->setAlignment(Qt::AlignCenter);
     coverLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    coverLabel->setStyleSheet("QLabel { background: transparent; border: none; }");
     cardLayout->addWidget(coverLabel);
 
     updateBookCardCover(bookCard, info);

@@ -59,6 +59,7 @@ private:
     BookshelfWidget* m_bookshelfWidget = nullptr;
     BookDetailsSidebar* m_detailsSidebar = nullptr;
     BookSyncManager* m_syncManager = nullptr;
+    QWidget* m_scannerPanel = nullptr;
     QLabel* m_statusLabel = nullptr;
     QLineEdit* m_searchBar = nullptr;
     QLineEdit* m_manualIsbnInput = nullptr;

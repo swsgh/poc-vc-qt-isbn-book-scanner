@@ -79,20 +79,25 @@ void MainWindow::setupUi()
     controlsLayout->addWidget(m_settingsButton);
     mainVerticalLayout->addLayout(controlsLayout);
 
-    m_scannerView = new BarcodeScannerView(this);
-    m_scannerView->setMaximumSize(400, 220);
-    m_scannerView->hide();
-    mainVerticalLayout->addWidget(m_scannerView, 0, Qt::AlignHCenter);
+    m_scannerPanel = new QWidget(centralWidget);
+    auto *scannerLayout = new QVBoxLayout(m_scannerPanel);
+    scannerLayout->setContentsMargins(0, 0, 0, 0);
+    scannerLayout->setSpacing(8);
+
+    m_scannerView = new BarcodeScannerView(m_scannerPanel);
+    m_scannerView->setMaximumWidth(932);
+    m_scannerView->setMaximumHeight(260);
+    scannerLayout->addWidget(m_scannerView, 0, Qt::AlignHCenter);
 
     auto *manualLookupLayout = new QHBoxLayout;
-    m_manualIsbnInput = new QLineEdit(centralWidget);
+    m_manualIsbnInput = new QLineEdit(m_scannerPanel);
     m_manualIsbnInput->setPlaceholderText("Type an ISBN code manually (e.g. 9781449392178)...");
     m_manualIsbnInput->setMaxLength(17);
     m_manualIsbnInput->setStyleSheet(
         "QLineEdit { background-color: #121212; border: 1px solid #121212; "
         "border-radius: 6px; padding: 10px; color: #ffffff; font-size: 14px; }"
         "QLineEdit:focus { border: 1px solid #3498db; }");
-    m_manualLookupButton = new QPushButton("🔍 Lookup", centralWidget);
+    m_manualLookupButton = new QPushButton("🔍 Lookup", m_scannerPanel);
     m_manualLookupButton->setMinimumSize(110, 40);
     m_manualLookupButton->setStyleSheet(
         "QPushButton { background-color: #121212; color: #ffffff; "
@@ -105,15 +110,15 @@ void MainWindow::setupUi()
             this, &MainWindow::submitManualIsbn);
     manualLookupLayout->addWidget(m_manualIsbnInput, 1);
     manualLookupLayout->addWidget(m_manualLookupButton);
-    m_manualIsbnInput->hide();
-    m_manualLookupButton->hide();
-    mainVerticalLayout->addLayout(manualLookupLayout);
+    scannerLayout->addLayout(manualLookupLayout);
 
-    m_statusLabel = new QLabel(this);
+    m_statusLabel = new QLabel(m_scannerPanel);
     m_statusLabel->setAlignment(Qt::AlignCenter);
     applyStatusStyle("Center an ISBN barcode to log a book");
-    m_statusLabel->hide();
-    mainVerticalLayout->addWidget(m_statusLabel, 0);
+    scannerLayout->addWidget(m_statusLabel, 0);
+
+    m_scannerPanel->hide();
+    mainVerticalLayout->addWidget(m_scannerPanel);
 
     auto *bottomRowContainer = new QWidget(this);
     auto *bottomRowLayout = new QHBoxLayout(bottomRowContainer);
@@ -155,7 +160,7 @@ void MainWindow::setupUi()
 
     setCentralWidget(centralWidget);
     setWindowTitle("ISBN Book Scanner");
-    resize(950, 750);
+    resize(950, 900);
 
     auto *syncMenu = new QMenu(this);
     m_registerAction = syncMenu->addAction("Register Sync Account...");
@@ -178,11 +183,8 @@ void MainWindow::setupUi()
 
 void MainWindow::toggleCameraView()
 {
-    const bool isVisible = m_scannerView->isVisible();
-    m_scannerView->setVisible(!isVisible);
-    m_statusLabel->setVisible(!isVisible);
-    m_manualIsbnInput->setVisible(!isVisible);
-    m_manualLookupButton->setVisible(!isVisible);
+    const bool isVisible = !m_scannerPanel->isHidden();
+    m_scannerPanel->setVisible(!isVisible);
 
     if (isVisible) {
         m_scannerView->stopCapture();
