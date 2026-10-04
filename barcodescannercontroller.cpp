@@ -4,6 +4,7 @@
 #include <QMediaCaptureSession>
 #include <QMediaDevices>
 #include <QMetaObject>
+#include <QPainter>
 #include <QVideoFrame>
 #include <QVideoSink>
 
