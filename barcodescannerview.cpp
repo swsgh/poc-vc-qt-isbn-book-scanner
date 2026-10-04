@@ -12,8 +12,6 @@
 #if defined(Q_OS_ANDROID)
 #include <QCoreApplication>
 #include <QPermissions>   // Required for mobile camera consent prompts
-#else
-#include <QDebug>
 #endif
 
 #include <ReadBarcode.h>

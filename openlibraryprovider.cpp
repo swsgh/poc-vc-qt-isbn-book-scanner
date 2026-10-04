@@ -23,7 +23,6 @@ void OpenLibraryProvider::requestMetadata(const QString &isbn)
     QNetworkRequest request((QUrl(urlString)));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setHeader(QNetworkRequest::UserAgentHeader, "Qt6ISBNBookScanner/1.0 (OpenLibrary Module)");
-    qDebug() << "[Network Request Dispatch] -> Querying Open Library API path:" << urlString;
     m_networkManager->get(request);
 }
 

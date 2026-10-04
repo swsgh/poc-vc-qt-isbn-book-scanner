@@ -249,8 +249,6 @@ void MainWindow::setupDatabase()
     }
 
     const QString crossPlatformDbPath = QDir::cleanPath(appDataFolder + "/scanned_books.db");
-    qDebug() << "[Database Info] Absolute SQL Path written to hardware:";
-    qDebug() << "   ->" << crossPlatformDbPath;
     m_dbManager->initDatabase(crossPlatformDbPath);
 
     m_metadataProvider = new BookMetadataProvider(m_dbManager, this);
@@ -412,8 +410,6 @@ void MainWindow::handleBookSaved(const QString &isbn)
 
 void MainWindow::handleSyncQueueFlush()
 {
-    qDebug() << "[Sync Engine] Connection validated. Processing offline pending queue backlog...";
-
     const QStringList deletes = m_dbManager->getPendingDeletes();
     for (const QString &isbn : deletes) {
         m_syncManager->deleteBookFromServer(isbn);
@@ -484,11 +480,8 @@ void MainWindow::removeBookRecord(const QString &isbn)
         QMessageBox::Yes | QMessageBox::No);
 
     if (confirmation == QMessageBox::No) {
-        qDebug() << "[Archive Controller] Deletion sequence safely cancelled by user.";
         return;
     }
-
-    qDebug() << "[Archive Controller] Initiating absolute purge sequence for ISBN:" << isbn;
 
     const bool success = m_dbManager->deleteBookRecord(isbn);
     if (!success) {

@@ -36,7 +36,7 @@ cmake --build build --config Release
 
 ## Local data and synchronization
 
-The SQLite database (`scanned_books.db`) is stored in Qt's application data location. Pending uploads and deletes are recorded in its `sync_queue` table. Per-account differential sync checkpoints are stored locally as well.
+The SQLite database (`scanned_books.db`) is stored in Qt's application data location and is shared with the Python scanner. Both clients use `books(isbn, title, authors, engine_source, cover_blob)`, `sync_queue(isbn, action_type)` with one pending action per ISBN, and `sync_state(username, checkpoint)`.
 
 Start the companion `poc-vc-py-bookshelf-sync-server` using its README instructions. The Qt client uses `http://127.0.0.1:8000` by default; set `BOOKSHELF_SYNC_URL` to use another server URL. Use the **Sync** menu to register or log in. Registration signs in automatically; login performs a differential sync, and **Sync now** flushes queued local actions and pulls remote updates. Authentication tokens are held in memory and are cleared when you log out or close the app.
 

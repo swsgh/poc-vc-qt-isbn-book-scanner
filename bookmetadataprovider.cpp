@@ -22,13 +22,6 @@ BookMetadataProvider::BookMetadataProvider(BookDatabaseManager* dbManager, QObje
     connect(m_imageNetworkManager.get(), &QNetworkAccessManager::finished, this, [](QNetworkReply* reply) {
         if (!reply) return;
 
-        int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        QUrl requestUrl = reply->request().url();
-
-        qDebug() << QString("[Network Activity] URL: %1 | Status: %2")
-                        .arg(requestUrl.toString())
-                        .arg(statusCode == 0 ? "Pending/Error" : QString::number(statusCode));
-
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "   -> Error String details:" << reply->errorString();
         }

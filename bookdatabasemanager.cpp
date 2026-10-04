@@ -2,7 +2,6 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
-#include <QDebug>
 
 BookDatabaseManager::BookDatabaseManager(QObject *parent) : QObject(parent)
 {
@@ -10,7 +9,6 @@ BookDatabaseManager::BookDatabaseManager(QObject *parent) : QObject(parent)
 
 bool BookDatabaseManager::initDatabase(const QString &dbPath)
 {
-    // Initialize the SQLite native driver connection
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName(dbPath);
 
@@ -19,9 +17,8 @@ bool BookDatabaseManager::initDatabase(const QString &dbPath)
         return false;
     }
 
-    // Build the books archive table schema
     QSqlQuery query;
-    QString createTableSql =
+    const QString createBooksTableSql =
         "CREATE TABLE IF NOT EXISTS books ("
         "  isbn TEXT PRIMARY KEY,"
         "  title TEXT NOT NULL,"
@@ -30,52 +27,27 @@ bool BookDatabaseManager::initDatabase(const QString &dbPath)
         "  cover_blob BLOB"
         ")";
 
-    if (!query.exec(createTableSql)) {
+    if (!query.exec(createBooksTableSql)) {
         emit databaseError("Failed to initialize database table layout: " + query.lastError().text());
         return false;
     }
 
-    QString createQueueTableSql =
+    const QString createQueueTableSql =
         "CREATE TABLE IF NOT EXISTS sync_queue ("
-        "  isbn TEXT NOT NULL,"
-        "  action_type TEXT NOT NULL,"
-        "  PRIMARY KEY (isbn, action_type)"
+        "  isbn TEXT PRIMARY KEY,"
+        "  action_type TEXT NOT NULL"
         ")";
-
-    QSqlQuery schemaQuery("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'sync_queue'");
-    if (schemaQuery.exec() && schemaQuery.next()) {
-        const QString existingSchema = schemaQuery.value(0).toString();
-        if (!existingSchema.contains("PRIMARY KEY (isbn, action_type)", Qt::CaseInsensitive)) {
-            QSqlQuery migrateQuery;
-            if (!migrateQuery.exec("ALTER TABLE sync_queue RENAME TO sync_queue_legacy")) {
-                emit databaseError("Failed to migrate legacy sync queue format: " + migrateQuery.lastError().text());
-                return false;
-            }
-
-            if (!query.exec(createQueueTableSql)) {
-                emit databaseError("Failed to recreate sync queue table during migration: " + query.lastError().text());
-                return false;
-            }
-
-            if (!query.exec("INSERT OR IGNORE INTO sync_queue (isbn, action_type) SELECT isbn, action_type FROM sync_queue_legacy")) {
-                emit databaseError("Failed to copy queued actions into the migrated table: " + query.lastError().text());
-                return false;
-            }
-
-            if (!query.exec("DROP TABLE sync_queue_legacy")) {
-                emit databaseError("Failed to remove migrated legacy sync queue table: " + query.lastError().text());
-                return false;
-            }
-        }
-    } else if (!query.exec(createQueueTableSql)) {
+    if (!query.exec(createQueueTableSql)) {
         emit databaseError("Failed to initialize sync queue table: " + query.lastError().text());
         return false;
     }
 
-    if (!query.exec(
-            "CREATE TABLE IF NOT EXISTS sync_state ("
-            "username TEXT PRIMARY KEY, "
-            "checkpoint INTEGER NOT NULL)")) {
+    const QString createSyncStateTableSql =
+        "CREATE TABLE IF NOT EXISTS sync_state ("
+        "  username TEXT PRIMARY KEY, "
+        "  checkpoint INTEGER NOT NULL"
+        ")";
+    if (!query.exec(createSyncStateTableSql)) {
         emit databaseError("Failed to initialize sync checkpoint table: " + query.lastError().text());
         return false;
     }
