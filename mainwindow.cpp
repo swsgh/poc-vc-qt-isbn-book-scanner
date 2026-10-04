@@ -623,7 +623,9 @@ bool MainWindow::promptSyncCredentials(bool registering, QString &serverUrl,
 
     QDialog dialog(this);
     dialog.setWindowTitle(registering ? "Register Sync Account" : "Log In to Sync");
-    dialog.setMinimumWidth(560);
+    const int maximumDialogWidth = std::max(1, width() * 4 / 5);
+    dialog.setMaximumWidth(maximumDialogWidth);
+    dialog.setMinimumWidth(std::min(375, maximumDialogWidth));
     dialog.setStyleSheet("QDialog QLabel { background-color: transparent; border: none; }");
 
     QLineEdit serverUrlInput(&dialog);
