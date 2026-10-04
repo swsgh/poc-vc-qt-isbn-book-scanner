@@ -412,7 +412,7 @@ bool MainWindow::promptSyncCredentials(bool registering, QString &serverUrl,
     QLineEdit serverUrlInput(&dialog);
     serverUrlInput.setText(defaultUrl);
     QLineEdit usernameInput(&dialog);
-    usernameInput.setText(rememberedUsername);
+    if (!registering) usernameInput.setText(rememberedUsername);
     QLineEdit passwordInput(&dialog);
     passwordInput.setEchoMode(QLineEdit::Password);
     QLineEdit *confirmationInput = nullptr;
@@ -420,8 +420,11 @@ bool MainWindow::promptSyncCredentials(bool registering, QString &serverUrl,
         confirmationInput = new QLineEdit(&dialog);
         confirmationInput->setEchoMode(QLineEdit::Password);
     }
-    QCheckBox rememberUsername("Remember username", &dialog);
-    rememberUsername.setChecked(!rememberedUsername.isEmpty());
+    QCheckBox *rememberUsername = nullptr;
+    if (!registering) {
+        rememberUsername = new QCheckBox("Remember username", &dialog);
+        rememberUsername->setChecked(!rememberedUsername.isEmpty());
+    }
 
     auto *form = new QGridLayout;
     form->setColumnMinimumWidth(0, 130);
@@ -444,7 +447,7 @@ bool MainWindow::promptSyncCredentials(bool registering, QString &serverUrl,
     if (registering) {
         addField(nextRow++, "Confirm password:", confirmationInput);
     }
-    form->addWidget(&rememberUsername, nextRow, 1);
+    if (rememberUsername) form->addWidget(rememberUsername, nextRow, 1);
 
     auto *layout = new QVBoxLayout(&dialog);
     layout->addLayout(form);
@@ -482,10 +485,12 @@ bool MainWindow::promptSyncCredentials(bool registering, QString &serverUrl,
     username = usernameInput.text().trimmed();
     password = passwordInput.text();
     settings.setValue("sync/server_url", serverUrl);
-    if (rememberUsername.isChecked()) {
-        settings.setValue("sync/username", username);
-    } else {
-        settings.remove("sync/username");
+    if (rememberUsername) {
+        if (rememberUsername->isChecked()) {
+            settings.setValue("sync/username", username);
+        } else {
+            settings.remove("sync/username");
+        }
     }
     return true;
 }
