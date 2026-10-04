@@ -23,11 +23,8 @@
 #include <QEvent>
 #include <QPalette>
 #include <QSettings>
-#include <QFrame>
-#include <QPushButton>
 #include <QToolButton>
 #include <QStatusBar>
-#include <QSizePolicy>
 #include <QSortFilterProxyModel>
 #include <QFileDialog>
 #include <QQmlError>
@@ -90,15 +87,23 @@ void MainWindow::setupUi()
     mainVerticalLayout->setSpacing(10);
 
     auto *controlsLayout = new QHBoxLayout;
-    m_cameraToggleButton = new QPushButton("📷 Show Camera Preview", centralWidget);
-    m_cameraToggleButton->setObjectName("cameraToggleButton");
-    m_cameraToggleButton->setToolTip("Open the scanner view and start camera capture");
-    m_cameraToggleButton->setAccessibleName("Camera preview toggle");
-    m_cameraToggleButton->setMinimumWidth(140);
-    m_cameraToggleButton->setFixedHeight(36);
-    connect(m_cameraToggleButton, &QPushButton::clicked,
-            this, &MainWindow::toggleCameraView);
-    controlsLayout->addWidget(m_cameraToggleButton);
+    auto *scannerToggleWidget = new QQuickWidget(centralWidget);
+    scannerToggleWidget->setFixedSize(176, 36);
+    scannerToggleWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    connect(scannerToggleWidget, &QQuickWidget::statusChanged, this,
+            [this, scannerToggleWidget](QQuickWidget::Status status) {
+                if (status == QQuickWidget::Error) {
+                    for (const QQmlError &error : scannerToggleWidget->errors()) {
+                        qWarning().noquote() << error.toString();
+                    }
+                } else if (status == QQuickWidget::Ready && scannerToggleWidget->rootObject()) {
+                    scannerToggleWidget->rootObject()->setProperty(
+                        "scannerActions", QVariant::fromValue(static_cast<QObject *>(this)));
+                }
+            });
+    scannerToggleWidget->setSource(
+        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/ScannerToggle.qml")));
+    controlsLayout->addWidget(scannerToggleWidget);
     controlsLayout->addStretch();
 
     m_syncConnectionIndicator = new QLabel(centralWidget);
@@ -118,15 +123,14 @@ void MainWindow::setupUi()
     mainVerticalLayout->addLayout(controlsLayout);
 
     m_scannerPanel = new QWidget(centralWidget);
-    m_scannerPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    m_scannerPanel->setMaximumHeight(340);
     auto *scannerLayout = new QVBoxLayout(m_scannerPanel);
     scannerLayout->setContentsMargins(0, 0, 0, 0);
-    scannerLayout->setSpacing(6);
+    scannerLayout->setSpacing(0);
 
     auto *scannerQuickWidget = new QQuickWidget(m_scannerPanel);
     scannerQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    scannerQuickWidget->setMinimumSize(320, 240);
-    scannerQuickWidget->setMaximumHeight(260);
+    scannerQuickWidget->setMinimumSize(320, 320);
     connect(scannerQuickWidget, &QQuickWidget::statusChanged, this,
             [this, scannerQuickWidget](QQuickWidget::Status status) {
                 if (status == QQuickWidget::Error) {
@@ -134,37 +138,16 @@ void MainWindow::setupUi()
                         qWarning().noquote() << error.toString();
                     }
                 } else if (status == QQuickWidget::Ready && scannerQuickWidget->rootObject()) {
-                    scannerQuickWidget->rootObject()->setProperty(
-                        "scannerController",
-                        QVariant::fromValue(static_cast<QObject *>(m_scannerController)));
+                    QQuickItem *root = scannerQuickWidget->rootObject();
+                    root->setProperty("scannerController",
+                                      QVariant::fromValue(static_cast<QObject *>(m_scannerController)));
+                    root->setProperty("scannerActions",
+                                      QVariant::fromValue(static_cast<QObject *>(this)));
                 }
             });
     scannerQuickWidget->setSource(
-        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/ScannerPreview.qml")));
-    scannerLayout->addWidget(scannerQuickWidget, 0, Qt::AlignHCenter);
-
-    auto *manualLookupLayout = new QHBoxLayout;
-    m_manualIsbnInput = new QLineEdit(m_scannerPanel);
-    m_manualIsbnInput->setObjectName("manualIsbnInput");
-    m_manualIsbnInput->setPlaceholderText("Type an ISBN code manually (e.g. 9781449392178)...");
-    m_manualIsbnInput->setMaxLength(17);
-    m_manualLookupButton = new QPushButton("🔍 Lookup", m_scannerPanel);
-    m_manualLookupButton->setObjectName("manualLookupButton");
-    m_manualLookupButton->setMinimumSize(110, 40);
-    connect(m_manualIsbnInput, &QLineEdit::returnPressed,
-            this, &MainWindow::submitManualIsbn);
-    connect(m_manualLookupButton, &QPushButton::clicked,
-            this, &MainWindow::submitManualIsbn);
-    manualLookupLayout->addWidget(m_manualIsbnInput, 1);
-    manualLookupLayout->addWidget(m_manualLookupButton);
-    scannerLayout->addLayout(manualLookupLayout);
-
-    m_statusLabel = new QLabel(m_scannerPanel);
-    m_statusLabel->setAlignment(Qt::AlignCenter);
-    m_statusLabel->setFrameShape(QFrame::NoFrame);
-    m_statusLabel->setAutoFillBackground(false);
-    applyStatusStyle("Center an ISBN barcode to add a book");
-    scannerLayout->addWidget(m_statusLabel, 0);
+        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/ScannerControls.qml")));
+    scannerLayout->addWidget(scannerQuickWidget);
 
     m_scannerPanel->hide();
     mainVerticalLayout->addWidget(m_scannerPanel);
@@ -358,46 +341,31 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
                buttonColor, buttonText, highlightColor, highlightedText)
            .arg(disabledTextColor));
 
-    m_cameraToggleButton->setStyleSheet(QString(
-        "QPushButton { background-color: %1; color: %2; border: 1px solid %3; "
-        "border-radius: 4px; font-size: 14px; padding: 0px 10px; }"
-        "QPushButton:hover { background-color: %4; color: %5; }")
-        .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
     m_settingsButton->setStyleSheet(QString(
         "QToolButton { background-color: %1; color: %2; border: 1px solid %3; "
         "border-radius: 4px; font-size: 20px; }"
         "QToolButton::menu-indicator { image: none; width: 0px; }"
         "QToolButton:hover { background-color: %4; color: %5; }")
         .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
-    m_manualLookupButton->setStyleSheet(QString(
-        "QPushButton { background-color: %1; color: %2; border: 1px solid %3; "
-        "border-radius: 6px; padding: 10px; font-weight: bold; }"
-        "QPushButton:hover { background-color: %4; color: %5; }")
-        .arg(buttonColor, buttonText, borderColor, highlightColor, highlightedText));
-
-    applyStatusStyle(m_statusLabel->text(), m_statusTextColor);
+    applyStatusStyle(m_scannerStatusText, m_statusTextColor);
     m_applyingPalette = false;
 }
 
-void MainWindow::toggleCameraView()
+void MainWindow::toggleScannerPanel()
 {
-    const bool isVisible = !m_scannerPanel->isHidden();
-    m_scannerPanel->setVisible(!isVisible);
-
-    if (isVisible) {
-        m_scannerController->stopCapture();
-        m_cameraToggleButton->setText("📷 Show Camera Preview");
-        m_cameraToggleButton->setToolTip("Open the scanner view and start camera capture");
-    } else {
-        m_cameraToggleButton->setText("🙈 Hide Camera Preview");
-        m_cameraToggleButton->setToolTip("Hide the scanner view and stop camera capture");
+    const bool showPanel = m_scannerPanel->isHidden();
+    m_scannerPanel->setVisible(showPanel);
+    if (showPanel) {
         m_scannerController->startCapture();
+    } else {
+        m_scannerController->stopCapture();
     }
+    emit scannerVisibilityChanged();
 }
 
-void MainWindow::submitManualIsbn()
+bool MainWindow::submitManualIsbn(const QString &input)
 {
-    QString isbn = m_manualIsbnInput->text().trimmed();
+    QString isbn = input.trimmed();
     isbn.remove(QLatin1Char('-'));
 
     const bool validLength = isbn.length() == 10 || isbn.length() == 13;
@@ -408,11 +376,11 @@ void MainWindow::submitManualIsbn()
     if (!validLength || !containsOnlyDigits) {
         QMessageBox::warning(this, "Invalid Input",
                              "ISBN must be a string of 10 or 13 numbers.");
-        return;
+        return false;
     }
 
-    m_manualIsbnInput->clear();
     m_metadataProvider->lookupIsbn(isbn);
+    return true;
 }
 
 void MainWindow::setupDatabase()
@@ -584,16 +552,9 @@ void MainWindow::populateBookshelf()
 
 void MainWindow::applyStatusStyle(const QString &text, const QString &textColor)
 {
+    m_scannerStatusText = text;
     m_statusTextColor = textColor;
-    m_statusLabel->setText(text);
-    const QString defaultTextColor =
-        QApplication::palette().color(QPalette::WindowText).name();
-    QString style = "font-weight: bold; font-size: 13px; padding: 3px; "
-                    "color: " + defaultTextColor + "; background: transparent; border: none;";
-    if (!textColor.isEmpty()) {
-        style += " color: " + textColor + ";";
-    }
-    m_statusLabel->setStyleSheet(style);
+    emit scannerStatusChanged();
 }
 
 void MainWindow::updateStatusLabel(const QString &text, bool isError)
@@ -616,6 +577,23 @@ void MainWindow::displayBookDetails(const BookInfo &info)
     applyStatusStyle(QString("📖 Successfully scanned: %1").arg(info.title));
     m_selectedBook = info;
     emit selectedBookChanged();
+}
+
+bool MainWindow::scannerVisible() const
+{
+    return m_scannerPanel && !m_scannerPanel->isHidden();
+}
+
+QString MainWindow::scannerStatusText() const
+{
+    return m_scannerStatusText;
+}
+
+QString MainWindow::scannerStatusColor() const
+{
+    return m_statusTextColor.isEmpty()
+        ? QApplication::palette().color(QPalette::WindowText).name()
+        : m_statusTextColor;
 }
 
 void MainWindow::removeBookRecord(const QString &isbn)

@@ -93,6 +93,8 @@ qt_add_qml_module(ISBNBookScanner
         BookshelfView.qml
         BookDetailsView.qml
         ScannerPreview.qml
+        ScannerToggle.qml
+        ScannerControls.qml
 )
 
 # 4. Target Link Libraries & Platform Setup

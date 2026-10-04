@@ -18,7 +18,6 @@ class QEvent;
 class QLabel;
 class QLineEdit;
 class QPalette;
-class QPushButton;
 class QToolButton;
 
 class MainWindow : public QMainWindow
@@ -32,6 +31,8 @@ public:
     Q_INVOKABLE void selectBook(const QString &isbn);
     Q_INVOKABLE void clearSelectedBook();
     Q_INVOKABLE void removeSelectedBook();
+    Q_INVOKABLE bool submitManualIsbn(const QString &input);
+    Q_INVOKABLE void toggleScannerPanel();
 
     Q_PROPERTY(bool selectedBookVisible READ selectedBookVisible NOTIFY selectedBookChanged)
     Q_PROPERTY(QString selectedBookTitle READ selectedBookTitle NOTIFY selectedBookChanged)
@@ -39,6 +40,9 @@ public:
     Q_PROPERTY(QString selectedBookIsbn READ selectedBookIsbn NOTIFY selectedBookChanged)
     Q_PROPERTY(QString selectedBookMetadata READ selectedBookMetadata NOTIFY selectedBookChanged)
     Q_PROPERTY(QUrl selectedBookCoverSource READ selectedBookCoverSource NOTIFY selectedBookChanged)
+    Q_PROPERTY(bool scannerVisible READ scannerVisible NOTIFY scannerVisibilityChanged)
+    Q_PROPERTY(QString scannerStatusText READ scannerStatusText NOTIFY scannerStatusChanged)
+    Q_PROPERTY(QString scannerStatusColor READ scannerStatusColor NOTIFY scannerStatusChanged)
 
     bool selectedBookVisible() const;
     QString selectedBookTitle() const;
@@ -46,21 +50,24 @@ public:
     QString selectedBookIsbn() const;
     QString selectedBookMetadata() const;
     QUrl selectedBookCoverSource() const;
+    bool scannerVisible() const;
+    QString scannerStatusText() const;
+    QString scannerStatusColor() const;
 
 signals:
     void selectedBookChanged();
+    void scannerVisibilityChanged();
+    void scannerStatusChanged();
 
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
     void displayBookDetails(const BookInfo &info);
     void removeBookRecord(const QString &isbn);
     void onSearchTextChanged(const QString &text);
-    void submitManualIsbn();
     void promptRegisterAccount();
     void promptLoginAccount();
     void syncNow();
     void logoutSync();
-    void toggleCameraView();
     void importBooksCsv();
     void exportBooksCsv();
 
@@ -90,17 +97,14 @@ private:
     QQuickWidget* m_bookDetailsQuickWidget = nullptr;
     BookInfo m_selectedBook;
     QWidget* m_scannerPanel = nullptr;
-    QLabel* m_statusLabel = nullptr;
     QLabel* m_syncConnectionIndicator = nullptr;
     QLineEdit* m_searchBar = nullptr;
-    QLineEdit* m_manualIsbnInput = nullptr;
-    QPushButton* m_cameraToggleButton = nullptr;
-    QPushButton* m_manualLookupButton = nullptr;
     QToolButton* m_settingsButton = nullptr;
     QAction* m_registerAction = nullptr;
     QAction* m_loginAction = nullptr;
     QAction* m_syncAction = nullptr;
     QAction* m_logoutAction = nullptr;
+    QString m_scannerStatusText = "Center an ISBN barcode to add a book";
     QString m_statusTextColor;
     bool m_applyingPalette = false;
 };
