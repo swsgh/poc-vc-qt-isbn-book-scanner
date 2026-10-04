@@ -15,6 +15,10 @@
 #include <QMessageBox>
 #include <QLineEdit>
 #include <QSet>
+#include <QInputDialog>
+#include <QMenu>
+#include <QMenuBar>
+#include <QAction>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -28,12 +32,12 @@ void MainWindow::initializeApplication()
     setupDatabase();
     populateBookshelf();
 
-    m_syncManager = new BookSyncManager("http://127.0.0.1:8000", this);
+    m_syncManager = new BookSyncManager(
+        qEnvironmentVariable("BOOKSHELF_SYNC_URL", "http://127.0.0.1:8000"), this);
     setupConnections();
     setupSync();
 
     m_scannerView->startCapture();
-    m_syncManager->loginAccount("stefan", "secret");
 }
 
 void MainWindow::setupUi()
@@ -100,6 +104,19 @@ void MainWindow::setupUi()
     setCentralWidget(centralWidget);
     setWindowTitle("ISBN Book Scanner");
     resize(950, 750);
+
+    QMenu *syncMenu = menuBar()->addMenu("Sync");
+    m_registerAction = syncMenu->addAction("Register account...");
+    m_loginAction = syncMenu->addAction("Log in...");
+    m_syncAction = syncMenu->addAction("Sync now");
+    m_logoutAction = syncMenu->addAction("Log out");
+    m_syncAction->setEnabled(false);
+    m_logoutAction->setEnabled(false);
+
+    connect(m_registerAction, &QAction::triggered, this, &MainWindow::promptRegisterAccount);
+    connect(m_loginAction, &QAction::triggered, this, &MainWindow::promptLoginAccount);
+    connect(m_syncAction, &QAction::triggered, this, &MainWindow::syncNow);
+    connect(m_logoutAction, &QAction::triggered, this, &MainWindow::logoutSync);
 }
 
 void MainWindow::setupDatabase()
@@ -139,11 +156,104 @@ void MainWindow::setupConnections()
 
 void MainWindow::setupSync()
 {
-    connect(m_syncManager, &BookSyncManager::uploadSucceeded, m_dbManager, &BookDatabaseManager::removePendingAction);
-    connect(m_syncManager, &BookSyncManager::deleteSucceeded, m_dbManager, &BookDatabaseManager::removePendingAction);
-    connect(m_syncManager, &BookSyncManager::loginSuccess, this, &MainWindow::handleSyncQueueFlush);
+    connect(m_syncManager, &BookSyncManager::uploadSucceeded, this, [this](const QString &isbn) {
+        m_dbManager->removePendingAction(isbn, "UPLOAD");
+    });
+    connect(m_syncManager, &BookSyncManager::deleteSucceeded, this, [this](const QString &isbn) {
+        m_dbManager->removePendingAction(isbn, "DELETE");
+    });
+    connect(m_syncManager, &BookSyncManager::loginSuccess, this, &MainWindow::handleLoginSuccess);
     connect(m_syncManager, &BookSyncManager::remoteBookUpdatesDownloaded,
             this, &MainWindow::handleRemoteBookUpdates);
+    connect(m_syncManager, &BookSyncManager::syncCompleted,
+            this, &MainWindow::handleSyncCompleted);
+    connect(m_syncManager, &BookSyncManager::authStatusMessage,
+            this, &MainWindow::updateStatusLabel);
+    connect(m_syncManager, &BookSyncManager::networkErrorOccurred, this,
+            [this](const QString &message) { updateStatusLabel(message, true); });
+}
+
+void MainWindow::promptRegisterAccount()
+{
+    bool accepted = false;
+    const QString username = QInputDialog::getText(
+        this, "Register Sync Account", "Username:", QLineEdit::Normal, {}, &accepted);
+    if (!accepted || username.trimmed().isEmpty()) return;
+
+    const QString password = QInputDialog::getText(
+        this, "Register Sync Account", "Password:", QLineEdit::Password, {}, &accepted);
+    if (!accepted || password.isEmpty()) return;
+
+    m_syncManager->setSyncCheckpoint(
+        m_dbManager->getSyncCheckpoint(username.trimmed()),
+        m_dbManager->hasSyncCheckpoint(username.trimmed()));
+    m_syncManager->registerAccount(username.trimmed(), password);
+}
+
+void MainWindow::promptLoginAccount()
+{
+    bool accepted = false;
+    const QString username = QInputDialog::getText(
+        this, "Log In to Sync", "Username:", QLineEdit::Normal, {}, &accepted);
+    if (!accepted || username.trimmed().isEmpty()) return;
+
+    const QString password = QInputDialog::getText(
+        this, "Log In to Sync", "Password:", QLineEdit::Password, {}, &accepted);
+    if (!accepted || password.isEmpty()) return;
+
+    m_syncManager->setSyncCheckpoint(
+        m_dbManager->getSyncCheckpoint(username.trimmed()),
+        m_dbManager->hasSyncCheckpoint(username.trimmed()));
+    m_syncManager->loginAccount(username.trimmed(), password);
+}
+
+void MainWindow::syncNow()
+{
+    if (!m_syncManager->isAuthenticated()) {
+        updateStatusLabel("Log in before synchronizing.", true);
+        return;
+    }
+    m_syncManager->triggerDifferentialSync();
+}
+
+void MainWindow::logoutSync()
+{
+    if (m_syncManager->isSyncRequestInFlight()) {
+        updateStatusLabel("Wait for synchronization to finish before logging out.", true);
+        return;
+    }
+    m_syncManager->logoutAccount();
+    m_registerAction->setEnabled(true);
+    m_loginAction->setEnabled(true);
+    m_syncAction->setEnabled(false);
+    m_logoutAction->setEnabled(false);
+}
+
+void MainWindow::handleLoginSuccess()
+{
+    m_registerAction->setEnabled(false);
+    m_loginAction->setEnabled(false);
+    m_syncAction->setEnabled(true);
+    m_logoutAction->setEnabled(true);
+}
+
+void MainWindow::handleSyncCompleted(const QString &username, qint64 checkpoint,
+                                     bool initialSync, const QStringList &remoteIsbns)
+{
+    m_dbManager->setSyncCheckpoint(username, checkpoint);
+
+    if (initialSync) {
+        const QSet<QString> serverBooks(remoteIsbns.begin(), remoteIsbns.end());
+        for (const BookInfo &book : m_dbManager->getAllSavedBooks()) {
+            if (!serverBooks.contains(book.isbn) && !m_dbManager->hasPendingAction(book.isbn)) {
+                m_dbManager->addPendingUpload(book.isbn);
+            }
+        }
+    }
+
+    handleSyncQueueFlush();
+    applyStatusStyle("Bookshelf synchronization complete.",
+                     "#2ecc71", "#152c1e", "#27ae60", 14, 8);
 }
 
 void MainWindow::populateBookshelf()
@@ -203,7 +313,7 @@ void MainWindow::handleSyncQueueFlush()
         if (book.found) {
             m_syncManager->uploadBookToServer(book);
         } else {
-            m_dbManager->removePendingAction(isbn);
+            m_dbManager->removePendingAction(isbn, "UPLOAD");
         }
     }
 }
@@ -211,19 +321,27 @@ void MainWindow::handleSyncQueueFlush()
 void MainWindow::handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
                                          const QStringList &isbnsToDelete)
 {
+    QSet<QString> pendingLocalIsbns;
+    for (const QString &isbn : m_dbManager->getPendingUploads()) {
+        pendingLocalIsbns.insert(isbn);
+    }
+    for (const QString &isbn : m_dbManager->getPendingDeletes()) {
+        pendingLocalIsbns.insert(isbn);
+    }
+
     QSet<QString> tombstones;
     for (const QString &isbn : isbnsToDelete) {
+        if (pendingLocalIsbns.contains(isbn)) continue;
         tombstones.insert(isbn);
         m_dbManager->deleteBookRecord(isbn);
-        m_dbManager->removePendingAction(isbn);
         m_bookshelfWidget->removeBookFromShelf(isbn);
     }
 
     for (const BookInfo &book : booksToSave) {
-        if (tombstones.contains(book.isbn)) {
+        if (tombstones.contains(book.isbn) || pendingLocalIsbns.contains(book.isbn)) {
             continue;
         }
-        m_dbManager->saveBookRecord(book);
+        m_dbManager->saveRemoteBookRecord(book);
         m_bookshelfWidget->addBookToShelf(book, true);
     }
 }
@@ -232,7 +350,7 @@ void MainWindow::updateStatusLabel(const QString &text, bool isError)
 {
     if (isError) {
         qCritical() << "[Scanner System Error Alert]:\n" << text;
-        applyStatusStyle("Ready for next scan...",
+        applyStatusStyle(text,
                          "#ff6b6b",
                          "#2c1515",
                          "#e74c3c",

@@ -17,7 +17,11 @@ public:
     // Session Management API
     void registerAccount(const QString &username, const QString &password);
     void loginAccount(const QString &username, const QString &password);
+    void logoutAccount();
+    void setSyncCheckpoint(qint64 timestamp, bool hasCheckpoint);
     bool isAuthenticated() const { return !m_token.isEmpty(); }
+    bool isSyncRequestInFlight() const { return m_syncRequestInFlight; }
+    QString currentUsername() const { return m_username; }
 
     // Sync API
     void uploadBookToServer(const BookInfo &info);
@@ -32,11 +36,16 @@ signals:
     void networkErrorOccurred(const QString &errorMsg);
     void uploadSucceeded(const QString &isbn);
     void deleteSucceeded(const QString &isbn);
+    void syncCompleted(const QString &username, qint64 checkpoint, bool initialSync,
+                       const QStringList &remoteIsbns);
 
 private:
     QString m_serverUrl;
     QString m_token;
+    QString m_username;
     qint64 m_lastSyncTimestamp; // Maps down to SQLite Unix tracked epochs
+    bool m_hasSyncCheckpoint = false;
+    bool m_syncRequestInFlight = false;
     QNetworkAccessManager *m_networkManager;
 
     // Private helpers to build injection-safe header requirements

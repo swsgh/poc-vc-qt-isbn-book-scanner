@@ -6,6 +6,7 @@
 #include <QHttpPart>
 #include <QDateTime>
 #include <QDebug>
+#include <QUrl>
 
 namespace {
 QNetworkReply *postJsonRequest(QNetworkAccessManager *networkManager,
@@ -13,6 +14,14 @@ QNetworkReply *postJsonRequest(QNetworkAccessManager *networkManager,
                                const QJsonObject &payload)
 {
     return networkManager->post(request, QJsonDocument(payload).toJson());
+}
+
+QString replyErrorMessage(QNetworkReply *reply, const QString &fallback)
+{
+    const QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
+    const QString detail = document.object().value("detail").toString();
+    return detail.isEmpty() ? (reply->errorString().isEmpty() ? fallback : reply->errorString())
+                            : detail;
 }
 }
 
@@ -51,14 +60,13 @@ void BookSyncManager::registerAccount(const QString &username, const QString &pa
     QNetworkRequest request = createJsonRequest("/api/auth/register");
 
     QNetworkReply *reply = postJsonRequest(m_networkManager, request, json);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, username, password]() {
         reply->deleteLater();
         if (reply->error() == QNetworkReply::NoError) {
-            emit authStatusMessage("Account registered successfully! You can now log in.", false);
+            emit authStatusMessage("Account registered. Signing in...", false);
+            loginAccount(username, password);
         } else {
-            const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-            const QString detail = doc.object().value("detail").toString("Registration failed.");
-            emit authStatusMessage(detail, true);
+            emit authStatusMessage(replyErrorMessage(reply, "Registration failed."), true);
         }
     });
 }
@@ -72,11 +80,11 @@ void BookSyncManager::loginAccount(const QString &username, const QString &passw
     QNetworkRequest request = createJsonRequest("/api/auth/login");
 
     QNetworkReply *reply = postJsonRequest(m_networkManager, request, json);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, username]() {
         reply->deleteLater();
 
         if (reply->error() != QNetworkReply::NoError) {
-            emit authStatusMessage("Invalid credentials context verification error.", true);
+            emit authStatusMessage(replyErrorMessage(reply, "Login failed."), true);
             return;
         }
 
@@ -93,10 +101,26 @@ void BookSyncManager::loginAccount(const QString &username, const QString &passw
             return;
         }
 
+        m_username = username;
         emit authStatusMessage("Successfully connected to cloud workspace panel.", false);
         emit loginSuccess();
         triggerDifferentialSync();
     });
+}
+
+void BookSyncManager::logoutAccount()
+{
+    m_token.clear();
+    m_username.clear();
+    m_lastSyncTimestamp = 0;
+    m_hasSyncCheckpoint = false;
+    emit authStatusMessage("Signed out of sync.", false);
+}
+
+void BookSyncManager::setSyncCheckpoint(qint64 timestamp, bool hasCheckpoint)
+{
+    m_lastSyncTimestamp = timestamp;
+    m_hasSyncCheckpoint = hasCheckpoint;
 }
 
 // =================================================================
@@ -143,6 +167,7 @@ void BookSyncManager::uploadBookToServer(const BookInfo &info)
             emit uploadSucceeded(info.isbn); // Notify MainWindow to remove from queue
         } else {
             qWarning() << "[Sync Engine] Upload failed, remaining in offline queue:" << reply->errorString();
+            emit networkErrorOccurred(replyErrorMessage(reply, "Book upload failed."));
         }
     });
 }
@@ -151,34 +176,40 @@ void BookSyncManager::deleteBookFromServer(const QString &isbn)
 {
     if (!isAuthenticated()) return;
 
-    QNetworkRequest request = createAuthenticatedRequest("/api/books/delete/" + isbn);
+    const QString encodedIsbn = QString::fromLatin1(QUrl::toPercentEncoding(isbn));
+    QNetworkRequest request = createAuthenticatedRequest("/api/books/delete/" + encodedIsbn);
     QNetworkReply *reply = m_networkManager->deleteResource(request);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, isbn]() {
         reply->deleteLater();
-        if (reply->error() == QNetworkReply::NoError) {
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() == QNetworkReply::NoError || statusCode == 404) {
             emit deleteSucceeded(isbn); // Notify MainWindow to remove from queue
         } else {
             qWarning() << "[Sync Engine] Deletion failed, remaining in offline queue:" << reply->errorString();
+            emit networkErrorOccurred(replyErrorMessage(reply, "Book deletion failed."));
         }
     });
 }
 
 void BookSyncManager::triggerDifferentialSync()
 {
-    if (!isAuthenticated()) return;
+    if (!isAuthenticated() || m_syncRequestInFlight) return;
 
-    // Build differential URL hook: /api/books/sync?since=17123456
-    QString endpoint = QString("/api/books/sync?since=%1").arg(m_lastSyncTimestamp);
+    const qint64 since = m_hasSyncCheckpoint ? m_lastSyncTimestamp : 0;
+    const QString endpoint = QString("/api/books/sync?since=%1").arg(since);
     QNetworkRequest request = createAuthenticatedRequest(endpoint);
 
+    m_syncRequestInFlight = true;
     QNetworkReply *reply = m_networkManager->get(request);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
+        m_syncRequestInFlight = false;
         if (reply->error() == QNetworkReply::NoError) {
             handleSyncResponse(reply->readAll());
         } else {
-            emit networkErrorOccurred("Could not safely perform differential shelf tracking sync logic.");
+            emit networkErrorOccurred(
+                replyErrorMessage(reply, "Could not complete bookshelf synchronization."));
         }
     });
 }
@@ -192,15 +223,26 @@ void BookSyncManager::handleSyncResponse(const QByteArray &jsonResponse)
     }
 
     const QJsonObject obj = doc.object();
-    m_lastSyncTimestamp = obj.value("serverTime").toInt(m_lastSyncTimestamp);
+    if (!obj.value("serverTime").isDouble() || !obj.value("updates").isArray()) {
+        emit networkErrorOccurred("Received an incomplete sync payload from the server.");
+        return;
+    }
+
+    const qint64 serverTime = obj.value("serverTime").toVariant().toLongLong();
+    const bool initialSync = !m_hasSyncCheckpoint;
+    const qint64 checkpoint = qMax<qint64>(0, serverTime - 1);
 
     const QJsonArray updatesArray = obj.value("updates").toArray();
     QList<BookInfo> booksToSave;
     QStringList isbnsToDelete;
+    QStringList remoteIsbns;
 
     for (const QJsonValue &val : updatesArray) {
         QJsonObject bookObj = val.toObject();
         QString isbn = bookObj.value("isbn").toString();
+        if (!isbn.isEmpty()) {
+            remoteIsbns.append(isbn);
+        }
         bool isDeleted = bookObj.value("isDeleted").toBool();
 
         if (isDeleted) {
@@ -225,4 +267,8 @@ void BookSyncManager::handleSyncResponse(const QByteArray &jsonResponse)
     if (!booksToSave.isEmpty() || !isbnsToDelete.isEmpty()) {
         emit remoteBookUpdatesDownloaded(booksToSave, isbnsToDelete);
     }
+
+    m_lastSyncTimestamp = checkpoint;
+    m_hasSyncCheckpoint = true;
+    emit syncCompleted(m_username, checkpoint, initialSync, remoteIsbns);
 }

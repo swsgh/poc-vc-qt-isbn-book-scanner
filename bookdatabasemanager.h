@@ -24,14 +24,20 @@ public:
     void addPendingDelete(const QString &isbn);
     QStringList getPendingUploads();
     QStringList getPendingDeletes();
-    void removePendingAction(const QString &isbn);
+    void removePendingAction(const QString &isbn, const QString &actionType);
+    bool hasPendingAction(const QString &isbn);
+    bool hasSyncCheckpoint(const QString &username);
+    qint64 getSyncCheckpoint(const QString &username);
+    void setSyncCheckpoint(const QString &username, qint64 checkpoint);
 
 private:
     void queueSyncAction(const QString &isbn, const QString &actionType);
+    bool writeBookRecord(const BookInfo &info);
 
 public slots:
     // Slot designed to directly consume the BookInfo packet emitted by the provider
     void saveBookRecord(const BookInfo &info);
+    void saveRemoteBookRecord(const BookInfo &info);
 
 signals:
     void databaseError(const QString &errorMessage);

@@ -72,12 +72,32 @@ bool BookDatabaseManager::initDatabase(const QString &dbPath)
         return false;
     }
 
+    if (!query.exec(
+            "CREATE TABLE IF NOT EXISTS sync_state ("
+            "username TEXT PRIMARY KEY, "
+            "checkpoint INTEGER NOT NULL)")) {
+        emit databaseError("Failed to initialize sync checkpoint table: " + query.lastError().text());
+        return false;
+    }
+
     return true;
 }
 
 void BookDatabaseManager::saveBookRecord(const BookInfo &info)
 {
-    if (!info.found) return;
+    if (writeBookRecord(info)) {
+        emit bookSavedSuccessfully(info.isbn);
+    }
+}
+
+void BookDatabaseManager::saveRemoteBookRecord(const BookInfo &info)
+{
+    writeBookRecord(info);
+}
+
+bool BookDatabaseManager::writeBookRecord(const BookInfo &info)
+{
+    if (!info.found) return false;
 
     QSqlQuery query;
     // Use an INSERT OR REPLACE clause so scanning a book a second time updates its entry
@@ -94,8 +114,9 @@ void BookDatabaseManager::saveBookRecord(const BookInfo &info)
 
     if (!query.exec()) {
         emit databaseError("Failed to save book record: " + query.lastError().text());
+        return false;
     } else {
-        emit bookSavedSuccessfully(info.isbn);
+        return true;
     }
 }
 
@@ -171,6 +192,17 @@ void BookDatabaseManager::queueSyncAction(const QString &isbn, const QString &ac
         return;
     }
 
+    QSqlQuery clearConflictingAction;
+    clearConflictingAction.prepare(
+        "DELETE FROM sync_queue WHERE isbn = ? AND action_type <> ?");
+    clearConflictingAction.addBindValue(isbn);
+    clearConflictingAction.addBindValue(actionType);
+    if (!clearConflictingAction.exec()) {
+        emit databaseError("Failed to replace queued sync action: "
+                           + clearConflictingAction.lastError().text());
+        return;
+    }
+
     QSqlQuery query;
     query.prepare("INSERT OR REPLACE INTO sync_queue (isbn, action_type) VALUES (?, ?)");
     query.addBindValue(isbn);
@@ -211,17 +243,57 @@ QStringList BookDatabaseManager::getPendingDeletes()
     return list;
 }
 
-void BookDatabaseManager::removePendingAction(const QString &isbn)
+void BookDatabaseManager::removePendingAction(const QString &isbn, const QString &actionType)
 {
-    if (isbn.isEmpty()) {
+    if (isbn.isEmpty() || actionType.isEmpty()) {
         return;
     }
 
     QSqlQuery query;
-    query.prepare("DELETE FROM sync_queue WHERE isbn = ?");
+    query.prepare("DELETE FROM sync_queue WHERE isbn = ? AND action_type = ?");
     query.addBindValue(isbn);
+    query.addBindValue(actionType);
 
     if (!query.exec()) {
         emit databaseError("Failed to clear sync queue item: " + query.lastError().text());
+    }
+}
+
+bool BookDatabaseManager::hasPendingAction(const QString &isbn)
+{
+    QSqlQuery query;
+    query.prepare("SELECT 1 FROM sync_queue WHERE isbn = ? LIMIT 1");
+    query.addBindValue(isbn);
+    return query.exec() && query.next();
+}
+
+bool BookDatabaseManager::hasSyncCheckpoint(const QString &username)
+{
+    QSqlQuery query;
+    query.prepare("SELECT 1 FROM sync_state WHERE username = ? LIMIT 1");
+    query.addBindValue(username);
+    return query.exec() && query.next();
+}
+
+qint64 BookDatabaseManager::getSyncCheckpoint(const QString &username)
+{
+    QSqlQuery query;
+    query.prepare("SELECT checkpoint FROM sync_state WHERE username = ?");
+    query.addBindValue(username);
+    if (query.exec() && query.next()) {
+        return query.value(0).toLongLong();
+    }
+    return 0;
+}
+
+void BookDatabaseManager::setSyncCheckpoint(const QString &username, qint64 checkpoint)
+{
+    QSqlQuery query;
+    query.prepare(
+        "INSERT OR REPLACE INTO sync_state (username, checkpoint) VALUES (?, ?)");
+    query.addBindValue(username);
+    query.addBindValue(checkpoint);
+    if (!query.exec()) {
+        emit databaseError("Failed to save sync checkpoint: " + query.lastError().text());
     }
 }

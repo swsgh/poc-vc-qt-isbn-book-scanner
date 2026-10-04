@@ -10,6 +10,7 @@ class BookDatabaseManager;
 class BookshelfWidget;
 class BookDetailsSidebar;
 class BookSyncManager;
+class QAction;
 class QLabel;
 class QLineEdit;
 
@@ -26,6 +27,12 @@ private slots:
     void displayBookDetails(const BookInfo &info);
     void removeBookRecord(const QString &isbn);
     void onSearchTextChanged(const QString &text);
+    void promptRegisterAccount();
+    void promptLoginAccount();
+    void syncNow();
+    void logoutSync();
+    void handleSyncCompleted(const QString &username, qint64 checkpoint,
+                             bool initialSync, const QStringList &remoteIsbns);
 
 private:
     void initializeApplication();
@@ -42,6 +49,7 @@ private:
                           int padding);
     void handleBookSaved(const QString &isbn);
     void handleSyncQueueFlush();
+    void handleLoginSuccess();
     void handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
                                  const QStringList &isbnsToDelete);
 
@@ -53,6 +61,10 @@ private:
     BookSyncManager* m_syncManager = nullptr;
     QLabel* m_isbnLabel = nullptr;
     QLineEdit* m_searchBar = nullptr;
+    QAction* m_registerAction = nullptr;
+    QAction* m_loginAction = nullptr;
+    QAction* m_syncAction = nullptr;
+    QAction* m_logoutAction = nullptr;
 };
 
 #endif // MAINWINDOW_H
