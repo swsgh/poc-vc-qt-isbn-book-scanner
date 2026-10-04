@@ -1,9 +1,7 @@
 #include "booksynccoordinator.h"
 
 #include "bookdatabasemanager.h"
-#include "bookdetailssidebar.h"
 #include "bookmetadataprovider.h"
-#include "bookshelfwidget.h"
 #include "booksyncmanager.h"
 #include "covercache.h"
 
@@ -12,15 +10,11 @@
 BookSyncCoordinator::BookSyncCoordinator(BookDatabaseManager *database,
                                          BookSyncManager *syncManager,
                                          BookMetadataProvider *metadataProvider,
-                                         BookshelfWidget *bookshelf,
-                                         BookDetailsSidebar *details,
                                          QObject *parent)
     : QObject(parent),
       m_database(database),
       m_syncManager(syncManager),
-      m_metadataProvider(metadataProvider),
-      m_bookshelf(bookshelf),
-      m_details(details)
+    m_metadataProvider(metadataProvider)
 {
     connect(m_database, &BookDatabaseManager::bookSavedSuccessfully,
             this, &BookSyncCoordinator::handleBookSaved);
@@ -69,8 +63,8 @@ bool BookSyncCoordinator::removeBook(const QString &isbn)
         return false;
     }
 
-    m_bookshelf->removeBookFromShelf(isbn);
-    m_details->closeSidebar();
+    emit collectionBookRemoved(isbn);
+    emit bookDetailsCloseRequested();
     CoverCache::removeImage(isbn);
     m_database->addPendingDelete(isbn);
     m_syncManager->deleteBookFromServer(isbn);
@@ -83,7 +77,7 @@ void BookSyncCoordinator::handleBookSaved(const QString &isbn)
     const BookInfo info = m_database->getBookByIsbn(isbn);
     if (!info.found) return;
 
-    m_bookshelf->addBookToShelf(info, true);
+    emit collectionBookAdded(info, true);
     m_database->addPendingUpload(isbn);
     m_syncManager->uploadBookToServer(info);
     emit statusMessage(QString("✅ Logged: %1").arg(info.title), false);
@@ -105,7 +99,7 @@ void BookSyncCoordinator::handleRemoteBookUpdates(const QList<BookInfo> &booksTo
         if (pendingLocalIsbns.contains(isbn)) continue;
         tombstones.insert(isbn);
         m_database->deleteBookRecord(isbn);
-        m_bookshelf->removeBookFromShelf(isbn);
+        emit collectionBookRemoved(isbn);
         CoverCache::removeImage(isbn);
         ++m_removedCount;
     }
@@ -115,7 +109,7 @@ void BookSyncCoordinator::handleRemoteBookUpdates(const QList<BookInfo> &booksTo
             continue;
         }
         m_database->saveRemoteBookRecord(book);
-        m_bookshelf->addBookToShelf(book, true);
+        emit collectionBookAdded(book, true);
         ++m_downloadedCount;
         if (!book.coverUrl.isEmpty() && !CoverCache::contains(book.isbn)) {
             m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl);

@@ -8,10 +8,8 @@
 #include "bookinfo.h"
 
 class BookDatabaseManager;
-class BookDetailsSidebar;
 class BookMetadataProvider;
 class BookSyncManager;
-class BookshelfWidget;
 
 class BookSyncCoordinator : public QObject
 {
@@ -21,8 +19,6 @@ public:
     BookSyncCoordinator(BookDatabaseManager *database,
                         BookSyncManager *syncManager,
                         BookMetadataProvider *metadataProvider,
-                        BookshelfWidget *bookshelf,
-                        BookDetailsSidebar *details,
                         QObject *parent = nullptr);
 
     void beginSync();
@@ -32,6 +28,9 @@ public:
 signals:
     void statusMessage(const QString &message, bool isError);
     void syncSummary(const QString &message);
+    void collectionBookAdded(const BookInfo &book, bool prepend);
+    void collectionBookRemoved(const QString &isbn);
+    void bookDetailsCloseRequested();
 
 private slots:
     void handleBookSaved(const QString &isbn);
@@ -44,8 +43,6 @@ private:
     BookDatabaseManager *m_database;
     BookSyncManager *m_syncManager;
     BookMetadataProvider *m_metadataProvider;
-    BookshelfWidget *m_bookshelf;
-    BookDetailsSidebar *m_details;
     int m_downloadedCount = 0;
     int m_removedCount = 0;
 };

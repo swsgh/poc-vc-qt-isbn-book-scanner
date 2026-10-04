@@ -408,10 +408,17 @@ void MainWindow::setupConnections()
 void MainWindow::setupSync()
 {
     m_syncCoordinator = new BookSyncCoordinator(
-        m_dbManager, m_syncManager, m_metadataProvider,
-        m_bookshelfWidget, m_detailsSidebar, this);
+        m_dbManager, m_syncManager, m_metadataProvider, this);
     connect(m_syncCoordinator, &BookSyncCoordinator::statusMessage,
             this, &MainWindow::updateStatusLabel);
+        connect(m_syncCoordinator, &BookSyncCoordinator::collectionBookAdded, this,
+            [this](const BookInfo &book, bool prepend) {
+            m_bookshelfWidget->addBookToShelf(book, prepend);
+            });
+        connect(m_syncCoordinator, &BookSyncCoordinator::collectionBookRemoved, this,
+            [this](const QString &isbn) { m_bookshelfWidget->removeBookFromShelf(isbn); });
+        connect(m_syncCoordinator, &BookSyncCoordinator::bookDetailsCloseRequested,
+            m_detailsSidebar, &BookDetailsSidebar::closeSidebar);
     connect(m_syncCoordinator, &BookSyncCoordinator::syncSummary, this,
             [this](const QString &message) { statusBar()->showMessage(message, 10000); });
     connect(m_syncManager, &BookSyncManager::serverConnectionChanged,
