@@ -82,6 +82,8 @@ private:
     QAction* m_syncAction = nullptr;
     QAction* m_logoutAction = nullptr;
     QString m_statusTextColor;
+    int m_syncDownloadedCount = 0;
+    int m_syncRemovedCount = 0;
     bool m_applyingPalette = false;
 };
 

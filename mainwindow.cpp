@@ -551,10 +551,12 @@ void MainWindow::setupSync()
     connect(m_syncManager, &BookSyncManager::syncCompleted,
             this, &MainWindow::handleSyncCompleted);
     connect(m_syncManager, &BookSyncManager::authStatusMessage,
-            this, &MainWindow::updateStatusLabel);
+            this, [this](const QString &message, bool isError) {
+                statusBar()->showMessage(message, isError ? 15000 : 5000);
+            });
     connect(m_syncManager, &BookSyncManager::networkErrorOccurred, this,
             [this](const QString &message) {
-                updateStatusLabel("Sync failed: " + message, true);
+                statusBar()->showMessage("Sync failed: " + message, 15000);
             });
 }
 
@@ -702,16 +704,19 @@ bool MainWindow::promptSyncCredentials(bool registering, QString &serverUrl,
 void MainWindow::syncNow()
 {
     if (!m_syncManager->isAuthenticated()) {
-        updateStatusLabel("Log in before synchronizing.", true);
+        statusBar()->showMessage("Log in before synchronizing.", 5000);
         return;
     }
+    m_syncDownloadedCount = 0;
+    m_syncRemovedCount = 0;
+    statusBar()->showMessage("Synchronizing bookshelf...");
     m_syncManager->triggerDifferentialSync();
 }
 
 void MainWindow::logoutSync()
 {
     if (m_syncManager->isSyncRequestInFlight()) {
-        updateStatusLabel("Wait for the current sync to finish before logging out.", true);
+        statusBar()->showMessage("Wait for the current sync to finish before logging out.", 5000);
         return;
     }
     m_syncManager->logoutAccount();
@@ -723,10 +728,13 @@ void MainWindow::logoutSync()
     m_loginAction->setEnabled(true);
     m_syncAction->setEnabled(false);
     m_logoutAction->setEnabled(false);
+    statusBar()->showMessage("Signed out of sync.", 5000);
 }
 
 void MainWindow::handleLoginSuccess()
 {
+    m_syncDownloadedCount = 0;
+    m_syncRemovedCount = 0;
     m_registerAction->setEnabled(false);
     m_loginAction->setEnabled(false);
     m_syncAction->setEnabled(true);
@@ -747,8 +755,16 @@ void MainWindow::handleSyncCompleted(const QString &username, qint64 checkpoint,
         }
     }
 
+    const int uploadCount = m_dbManager->getPendingUploads().size();
+    const int deleteCount = m_dbManager->getPendingDeletes().size();
     handleSyncQueueFlush();
-    applyStatusStyle("Bookshelf synchronization complete.");
+    statusBar()->showMessage(
+        QString("Sync complete: %1 downloaded, %2 removed, %3 uploaded, %4 deletes sent.")
+            .arg(m_syncDownloadedCount)
+            .arg(m_syncRemovedCount)
+            .arg(uploadCount)
+            .arg(deleteCount),
+        10000);
 }
 
 void MainWindow::populateBookshelf()
@@ -827,6 +843,7 @@ void MainWindow::handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
         m_dbManager->deleteBookRecord(isbn);
         m_bookshelfWidget->removeBookFromShelf(isbn);
         CoverCache::removeImage(isbn);
+        ++m_syncRemovedCount;
     }
 
     for (const BookInfo &book : booksToSave) {
@@ -835,6 +852,7 @@ void MainWindow::handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
         }
         m_dbManager->saveRemoteBookRecord(book);
         m_bookshelfWidget->addBookToShelf(book, true);
+        ++m_syncDownloadedCount;
         if (!book.coverUrl.isEmpty() && !CoverCache::contains(book.isbn)) {
             m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl);
         }
