@@ -9,6 +9,7 @@
 #include <QUrl>
 #include <QTimer>
 #include <QDebug>
+#include <algorithm>
 
 BookMetadataProvider::BookMetadataProvider(BookDatabaseManager* dbManager, QObject *parent)
     : QObject(parent)
@@ -43,7 +44,14 @@ BookMetadataProvider::~BookMetadataProvider() = default;
 
 void BookMetadataProvider::lookupIsbn(const QString &isbn)
 {
-    if (!isbn.startsWith("978") && !isbn.startsWith("979")) return;
+    const bool isIsbn10 = isbn.length() == 10;
+    const bool isIsbn13 = isbn.length() == 13
+        && (isbn.startsWith("978") || isbn.startsWith("979"));
+    const bool containsOnlyDigits = std::all_of(
+        isbn.cbegin(), isbn.cend(), [](QChar character) {
+            return character >= QLatin1Char('0') && character <= QLatin1Char('9');
+        });
+    if ((!isIsbn10 && !isIsbn13) || !containsOnlyDigits) return;
     if (m_isCooldownActive && isbn == m_lastScannedIsbn) return;
 
     m_isCooldownActive = true;

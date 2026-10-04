@@ -29,6 +29,7 @@ private slots:
     void displayBookDetails(const BookInfo &info);
     void removeBookRecord(const QString &isbn);
     void onSearchTextChanged(const QString &text);
+    void submitManualIsbn();
     void promptRegisterAccount();
     void promptLoginAccount();
     void syncNow();
@@ -65,7 +66,9 @@ private:
     BookSyncManager* m_syncManager = nullptr;
     QLabel* m_isbnLabel = nullptr;
     QLineEdit* m_searchBar = nullptr;
+    QLineEdit* m_manualIsbnInput = nullptr;
     QPushButton* m_cameraToggleButton = nullptr;
+    QPushButton* m_manualLookupButton = nullptr;
     QToolButton* m_settingsButton = nullptr;
     QAction* m_registerAction = nullptr;
     QAction* m_loginAction = nullptr;

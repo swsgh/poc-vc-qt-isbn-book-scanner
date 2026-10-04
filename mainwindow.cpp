@@ -21,6 +21,7 @@
 #include <QPushButton>
 #include <QToolButton>
 #include <QStatusBar>
+#include <algorithm>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -85,7 +86,7 @@ void MainWindow::setupUi()
 
     m_isbnLabel = new QLabel(this);
     m_isbnLabel->setAlignment(Qt::AlignCenter);
-    applyStatusStyle("Align ISBN barcode with the red laser line...",
+    applyStatusStyle("Center the ISBN inside the scan window or enter it below.",
                      "#e0e0e0",
                      "#1e1e1e",
                      "#1e1e1e",
@@ -93,6 +94,21 @@ void MainWindow::setupUi()
                      8);
     m_isbnLabel->hide();
     mainVerticalLayout->addWidget(m_isbnLabel, 0);
+
+        auto *manualLookupLayout = new QHBoxLayout;
+        m_manualIsbnInput = new QLineEdit(centralWidget);
+        m_manualIsbnInput->setPlaceholderText("Enter a 10- or 13-digit ISBN...");
+        m_manualIsbnInput->setMaxLength(17);
+        m_manualLookupButton = new QPushButton("Lookup", centralWidget);
+        connect(m_manualIsbnInput, &QLineEdit::returnPressed,
+            this, &MainWindow::submitManualIsbn);
+        connect(m_manualLookupButton, &QPushButton::clicked,
+            this, &MainWindow::submitManualIsbn);
+        manualLookupLayout->addWidget(m_manualIsbnInput, 1);
+        manualLookupLayout->addWidget(m_manualLookupButton);
+        m_manualIsbnInput->hide();
+        m_manualLookupButton->hide();
+        mainVerticalLayout->addLayout(manualLookupLayout);
 
     auto *bottomRowContainer = new QWidget(this);
     auto *bottomRowLayout = new QHBoxLayout(bottomRowContainer);
@@ -160,6 +176,8 @@ void MainWindow::toggleCameraView()
     const bool isVisible = m_scannerView->isVisible();
     m_scannerView->setVisible(!isVisible);
     m_isbnLabel->setVisible(!isVisible);
+    m_manualIsbnInput->setVisible(!isVisible);
+    m_manualLookupButton->setVisible(!isVisible);
 
     if (isVisible) {
         m_scannerView->stopCapture();
@@ -170,6 +188,26 @@ void MainWindow::toggleCameraView()
         m_cameraToggleButton->setToolTip("Hide the camera preview and stop capture");
         m_scannerView->startCapture();
     }
+}
+
+void MainWindow::submitManualIsbn()
+{
+    QString isbn = m_manualIsbnInput->text().trimmed();
+    isbn.remove(QLatin1Char('-'));
+
+    const bool validLength = isbn.length() == 10 || isbn.length() == 13;
+    const bool containsOnlyDigits = std::all_of(
+        isbn.cbegin(), isbn.cend(), [](QChar character) {
+            return character >= QLatin1Char('0') && character <= QLatin1Char('9');
+        });
+    if (!validLength || !containsOnlyDigits) {
+        updateStatusLabel("ISBN must contain 10 or 13 digits.", true);
+        m_manualIsbnInput->setFocus();
+        return;
+    }
+
+    m_manualIsbnInput->clear();
+    m_metadataProvider->lookupIsbn(isbn);
 }
 
 void MainWindow::clearLibraryDatabase()
