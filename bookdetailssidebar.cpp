@@ -4,7 +4,32 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QPixmap>
-#include <QPainter> // Required to draw the local placeholder backup
+#include <QPainter>
+
+namespace {
+QPixmap makePlaceholderCover(const QString &title, int width, int height)
+{
+    QPixmap placeholder(width, height);
+    placeholder.fill(QColor("#34495e"));
+
+    QPainter painter(&placeholder);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::white);
+    painter.drawRect(5, 5, width - 10, height - 10);
+
+    QFont font = painter.font();
+    font.setPointSize(9);
+    font.setBold(true);
+    painter.setFont(font);
+
+    QRect textRect(10, 20, width - 20, height - 30);
+    painter.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap,
+                     title.left(30) + (title.length() > 30 ? "..." : ""));
+    painter.end();
+
+    return placeholder;
+}
+}
 
 BookDetailsSidebar::BookDetailsSidebar(QWidget *parent) : QWidget(parent)
 {
@@ -83,25 +108,7 @@ void BookDetailsSidebar::updateDetails(const BookInfo &info)
     if (!info.coverData.isEmpty() && coverPixmap.loadFromData(info.coverData)) {
         m_coverLabel->setPixmap(coverPixmap.scaled(m_coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
-        // Fallback layout generation tool directly mimicking BookshelfWidget placeholder logic
-        QPixmap placeholder(140, 180);
-        placeholder.fill(QColor("#34495e"));
-        QPainter painter(&placeholder);
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.setPen(Qt::white);
-        painter.drawRect(5, 5, 130, 170);
-
-        QFont font = painter.font();
-        font.setPointSize(9);
-        font.setBold(true);
-        painter.setFont(font);
-
-        QRect textRect(10, 20, 120, 140);
-        painter.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap,
-                         info.title.left(30) + (info.title.length() > 30 ? "..." : ""));
-        painter.end();
-
-        m_coverLabel->setPixmap(placeholder);
+        m_coverLabel->setPixmap(makePlaceholderCover(info.title, 140, 180));
     }
 
     m_detailTitleLabel->setText(QString("<b>Title:</b><br>%1").arg(info.title));

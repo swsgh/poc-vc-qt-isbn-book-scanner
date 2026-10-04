@@ -139,37 +139,67 @@ bool BookDatabaseManager::deleteBookRecord(const QString &isbn)
     return query.numRowsAffected() > 0;
 }
 
-void BookDatabaseManager::addPendingUpload(const QString &isbn) {
+void BookDatabaseManager::addPendingUpload(const QString &isbn)
+{
+    if (isbn.isEmpty()) {
+        return;
+    }
+
     QSqlQuery query;
     query.prepare("INSERT OR REPLACE INTO sync_queue (isbn, action_type) VALUES (?, 'UPLOAD')");
     query.addBindValue(isbn);
-    query.exec();
+
+    if (!query.exec()) {
+        emit databaseError("Failed to queue upload: " + query.lastError().text());
+    }
 }
 
-void BookDatabaseManager::addPendingDelete(const QString &isbn) {
+void BookDatabaseManager::addPendingDelete(const QString &isbn)
+{
+    if (isbn.isEmpty()) {
+        return;
+    }
+
     QSqlQuery query;
     query.prepare("INSERT OR REPLACE INTO sync_queue (isbn, action_type) VALUES (?, 'DELETE')");
     query.addBindValue(isbn);
-    query.exec();
+
+    if (!query.exec()) {
+        emit databaseError("Failed to queue delete: " + query.lastError().text());
+    }
 }
 
-QStringList BookDatabaseManager::getPendingUploads() {
+QStringList BookDatabaseManager::getPendingUploads()
+{
     QStringList list;
     QSqlQuery query("SELECT isbn FROM sync_queue WHERE action_type = 'UPLOAD'");
-    while (query.next()) list.append(query.value(0).toString());
+    while (query.next()) {
+        list.append(query.value(0).toString());
+    }
     return list;
 }
 
-QStringList BookDatabaseManager::getPendingDeletes() {
+QStringList BookDatabaseManager::getPendingDeletes()
+{
     QStringList list;
     QSqlQuery query("SELECT isbn FROM sync_queue WHERE action_type = 'DELETE'");
-    while (query.next()) list.append(query.value(0).toString());
+    while (query.next()) {
+        list.append(query.value(0).toString());
+    }
     return list;
 }
 
-void BookDatabaseManager::removePendingAction(const QString &isbn) {
+void BookDatabaseManager::removePendingAction(const QString &isbn)
+{
+    if (isbn.isEmpty()) {
+        return;
+    }
+
     QSqlQuery query;
-    query.prepare("DELETE FROM sync_queue WHERE WHERE isbn = ?");
+    query.prepare("DELETE FROM sync_queue WHERE isbn = ?");
     query.addBindValue(isbn);
-    query.exec();
+
+    if (!query.exec()) {
+        emit databaseError("Failed to clear sync queue item: " + query.lastError().text());
+    }
 }

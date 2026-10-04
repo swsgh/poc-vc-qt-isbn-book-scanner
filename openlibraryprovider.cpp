@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QDebug>
 
 OpenLibraryProvider::OpenLibraryProvider(QObject *parent) : AbstractBookProvider(parent)
 {

@@ -58,18 +58,31 @@ void BookSyncManager::loginAccount(const QString &username, const QString &passw
     QNetworkRequest request(QUrl(m_serverUrl + "/api/auth/login"));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
-    QNetworkReply *reply = m_networkManager->post(request, QJsonDocument(json).toJson());
+    auto *reply = m_networkManager->post(request, QJsonDocument(json).toJson());
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
-        if (reply->error() == QNetworkReply::NoError) {
-            QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-            m_token = doc.object().value("token").toString();
-            emit authStatusMessage("Successfully connected to cloud workspace panel.", false);
-            emit loginSuccess();
-            triggerDifferentialSync(); // Pull items instantly upon authentication
-        } else {
+
+        if (reply->error() != QNetworkReply::NoError) {
             emit authStatusMessage("Invalid credentials context verification error.", true);
+            return;
         }
+
+        const QByteArray response = reply->readAll();
+        const QJsonDocument doc = QJsonDocument::fromJson(response);
+        if (doc.isNull() || !doc.isObject()) {
+            emit authStatusMessage("Login response was malformed.", true);
+            return;
+        }
+
+        m_token = doc.object().value("token").toString();
+        if (m_token.isEmpty()) {
+            emit authStatusMessage("Login succeeded but no token was returned.", true);
+            return;
+        }
+
+        emit authStatusMessage("Successfully connected to cloud workspace panel.", false);
+        emit loginSuccess();
+        triggerDifferentialSync();
     });
 }
 
@@ -159,13 +172,16 @@ void BookSyncManager::triggerDifferentialSync()
 
 void BookSyncManager::handleSyncResponse(const QByteArray &jsonResponse)
 {
-    QJsonDocument doc = QJsonDocument::fromJson(jsonResponse);
-    QJsonObject obj = doc.object();
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonResponse);
+    if (doc.isNull() || !doc.isObject()) {
+        emit networkErrorOccurred("Received an invalid sync payload from the server.");
+        return;
+    }
 
-    // Cache the server's synchronized timestamp value locally
+    const QJsonObject obj = doc.object();
     m_lastSyncTimestamp = obj.value("serverTime").toInt(m_lastSyncTimestamp);
 
-    QJsonArray updatesArray = obj.value("updates").toArray();
+    const QJsonArray updatesArray = obj.value("updates").toArray();
     QList<BookInfo> booksToSave;
     QStringList isbnsToDelete;
 

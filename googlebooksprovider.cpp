@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QDebug>
 
 GoogleBooksProvider::GoogleBooksProvider(QObject *parent) : AbstractBookProvider(parent)
 {
