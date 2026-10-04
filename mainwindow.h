@@ -28,13 +28,30 @@ private slots:
     void onSearchTextChanged(const QString &text);
 
 private:
-    BarcodeScannerView* m_scannerView;
-    BookMetadataProvider* m_metadataProvider;
-    BookDatabaseManager* m_dbManager;
-    BookshelfWidget* m_bookshelfWidget;
-    BookDetailsSidebar* m_detailsSidebar;
-    BookSyncManager* m_syncManager;
-    QLabel* m_isbnLabel;
+    void setupUi();
+    void setupDatabase();
+    void setupConnections();
+    void setupSync();
+    void populateBookshelf();
+    void applyStatusStyle(const QString &text,
+                          const QString &textColor,
+                          const QString &backgroundColor,
+                          const QString &borderColor,
+                          int fontSize,
+                          int padding);
+    void handleBookSaved(const QString &isbn);
+    void handleSyncQueueFlush();
+    void handleRemoteBookUpdates(const QList<BookInfo> &booksToSave,
+                                 const QStringList &isbnsToDelete);
+
+    BarcodeScannerView* m_scannerView = nullptr;
+    BookMetadataProvider* m_metadataProvider = nullptr;
+    BookDatabaseManager* m_dbManager = nullptr;
+    BookshelfWidget* m_bookshelfWidget = nullptr;
+    BookDetailsSidebar* m_detailsSidebar = nullptr;
+    BookSyncManager* m_syncManager = nullptr;
+    QLabel* m_isbnLabel = nullptr;
+    QLineEdit* m_searchBar = nullptr;
 };
 
 #endif // MAINWINDOW_H
