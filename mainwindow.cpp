@@ -300,7 +300,7 @@ void MainWindow::setupDatabase()
         dir.mkpath(".");
     }
 
-    const QString crossPlatformDbPath = QDir::cleanPath(appDataFolder + "/scanned_books.db");
+    const QString crossPlatformDbPath = QDir::cleanPath(appDataFolder + "/bookshelf.db");
     m_dbManager->initDatabase(crossPlatformDbPath);
 
     m_metadataProvider = new BookMetadataProvider(m_dbManager, this);

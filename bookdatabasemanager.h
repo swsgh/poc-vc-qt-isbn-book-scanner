@@ -13,7 +13,7 @@ public:
     ~BookDatabaseManager() override = default;
 
     // Opens the database file and creates the table layout if it doesn't exist
-    bool initDatabase(const QString &dbPath = "scanned_books.db");
+    bool initDatabase(const QString &dbPath = "bookshelf.db");
     // Retrieves all saved items sorted by the newest scan entry sequence timestamp
     QList<BookInfo> getAllSavedBooks();
     BookInfo getBookByIsbn(const QString &isbn);
