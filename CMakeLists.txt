@@ -14,16 +14,13 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Gui
-    Widgets
     Qml
     Quick
     QuickControls2
     QuickDialogs2
-    QuickWidgets
     Sql
     Network
     Multimedia
-    MultimediaWidgets
 )
 
 qt_policy(SET QTP0001 NEW)
@@ -71,10 +68,6 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     bookdatabasemanager.cpp
     bookcollectionmodel.h
     bookcollectionmodel.cpp
-    bookshelfwidget.h
-    bookshelfwidget.cpp
-    bookdetailssidebar.h
-    bookdetailssidebar.cpp
     booksyncmanager.h
     booksyncmanager.cpp
     booksynccoordinator.h
@@ -103,16 +96,13 @@ qt_add_qml_module(ISBNBookScanner
 target_link_libraries(ISBNBookScanner PRIVATE
     Qt6::Core
     Qt6::Gui
-    Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::QuickDialogs2
-    Qt6::QuickWidgets
     Qt6::Sql
     Qt6::Network
     Qt6::Multimedia
-    Qt6::MultimediaWidgets
     ZXing::ZXing
 )
 

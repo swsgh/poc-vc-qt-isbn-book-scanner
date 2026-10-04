@@ -1,8 +1,9 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
+#include <QObject>
 #include <QUrl>
+#include <QVariantMap>
 #include "bookinfo.h"
 
 class BarcodeScannerController;
@@ -12,16 +13,14 @@ class BookSyncManager;
 class BookSyncCoordinator;
 class BookCollectionModel;
 class QSortFilterProxyModel;
-class QQuickWidget;
-class QEvent;
-class QPalette;
+class QQmlApplicationEngine;
 
-class MainWindow : public QMainWindow
+class MainWindow : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QQmlApplicationEngine &engine, QObject *parent = nullptr);
     ~MainWindow() override = default;
 
     Q_INVOKABLE void selectBook(const QString &isbn);
@@ -53,6 +52,8 @@ public:
     Q_PROPERTY(QString scannerStatusColor READ scannerStatusColor NOTIFY scannerStatusChanged)
     Q_PROPERTY(bool syncAuthenticated READ syncAuthenticated NOTIFY syncStateChanged)
     Q_PROPERTY(bool syncServerReachable READ syncServerReachable NOTIFY syncConnectionChanged)
+    Q_PROPERTY(QString applicationStatusText READ applicationStatusText NOTIFY applicationStatusChanged)
+    Q_PROPERTY(bool applicationStatusIsError READ applicationStatusIsError NOTIFY applicationStatusChanged)
 
     bool selectedBookVisible() const;
     QString selectedBookTitle() const;
@@ -65,6 +66,8 @@ public:
     QString scannerStatusColor() const;
     bool syncAuthenticated() const;
     bool syncServerReachable() const;
+    QString applicationStatusText() const;
+    bool applicationStatusIsError() const;
 
 signals:
     void selectedBookChanged();
@@ -72,23 +75,21 @@ signals:
     void scannerStatusChanged();
     void syncStateChanged();
     void syncConnectionChanged();
+    void applicationStatusChanged();
 
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
     void displayBookDetails(const BookInfo &info);
 
-protected:
-    void changeEvent(QEvent *event) override;
-
 private:
-    void initializeApplication();
-    void setupUi();
+    void initializeApplication(QQmlApplicationEngine &engine);
     void setupDatabase();
     void setupConnections();
     void setupSync();
     void populateBookshelf();
-    void applyPaletteStyles(const QPalette &palette);
     void applyStatusStyle(const QString &text, const QString &textColor = {});
+    void setApplicationStatus(const QString &text, bool isError = false,
+                              int durationMs = 5000);
     void updateSyncConnectionIndicator(bool connected);
     void handleLoginSuccess();
 
@@ -99,13 +100,14 @@ private:
     BookSyncCoordinator* m_syncCoordinator = nullptr;
     BookCollectionModel* m_bookCollectionModel = nullptr;
     QSortFilterProxyModel* m_bookFilterModel = nullptr;
-    QQuickWidget* m_mainQuickWidget = nullptr;
     BookInfo m_selectedBook;
     QString m_scannerStatusText = "Center an ISBN barcode to add a book";
     QString m_statusTextColor;
     bool m_scannerVisible = false;
     bool m_syncServerReachable = false;
-    bool m_applyingPalette = false;
+    QString m_applicationStatusText;
+    bool m_applicationStatusIsError = false;
+    quint64 m_applicationStatusGeneration = 0;
 };
 
 #endif // MAINWINDOW_H

@@ -3,16 +3,25 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import ISBNBookScanner
 
-Item {
+ApplicationWindow {
     id: root
 
     property var mainWindow: null
     property var bookCollection: null
     property var scannerController: null
 
+    visible: true
+    width: 950
+    height: 900
+    minimumWidth: 720
+    minimumHeight: 600
+    title: "ISBN Book Scanner"
+
     SystemPalette {
         id: systemPalette
     }
+
+    color: systemPalette.window
 
     ColumnLayout {
         anchors.fill: parent
@@ -97,6 +106,18 @@ Item {
                 visible: root.mainWindow ? root.mainWindow.selectedBookVisible : false
                 selection: root.mainWindow
             }
+        }
+
+        Text {
+            Layout.fillWidth: true
+            Layout.preferredHeight: visible ? 22 : 0
+            text: root.mainWindow ? root.mainWindow.applicationStatusText : ""
+            color: root.mainWindow && root.mainWindow.applicationStatusIsError
+                ? "#ff6b6b" : systemPalette.windowText
+            font.pixelSize: 12
+            visible: text.length > 0
+            elide: Text.ElideRight
+            verticalAlignment: Text.AlignVCenter
         }
     }
 }

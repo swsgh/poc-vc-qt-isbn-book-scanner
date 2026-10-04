@@ -11,39 +11,22 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
-#include <QApplication>
-#include <QEvent>
+#include <QGuiApplication>
 #include <QPalette>
+#include <QQmlApplicationEngine>
 #include <QSettings>
-#include <QStatusBar>
+#include <QTimer>
 #include <QSortFilterProxyModel>
-#include <QQmlError>
-#include <QQmlContext>
-#include <QQuickWidget>
-#include <QQuickItem>
 #include <QUrl>
 #include <algorithm>
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
+MainWindow::MainWindow(QQmlApplicationEngine &engine, QObject *parent)
+    : QObject(parent)
 {
-    setPalette(QApplication::palette());
-    setAutoFillBackground(true);
-    setAttribute(Qt::WA_StyledBackground, true);
-    initializeApplication();
+    initializeApplication(engine);
 }
 
-void MainWindow::changeEvent(QEvent *event)
-{
-    QMainWindow::changeEvent(event);
-    const bool paletteChanged = event->type() == QEvent::ApplicationPaletteChange
-        || event->type() == QEvent::PaletteChange;
-    if (paletteChanged && centralWidget() && !m_applyingPalette) {
-        applyPaletteStyles(QApplication::palette());
-    }
-}
-
-void MainWindow::initializeApplication()
+void MainWindow::initializeApplication(QQmlApplicationEngine &engine)
 {
     m_scannerController = new BarcodeScannerController(this);
     m_bookCollectionModel = new BookCollectionModel(this);
@@ -52,8 +35,6 @@ void MainWindow::initializeApplication()
     m_bookFilterModel->setFilterRole(BookCollectionModel::SearchTextRole);
     m_bookFilterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
 
-    setupUi();
-    applyPaletteStyles(QApplication::palette());
     setupDatabase();
     populateBookshelf();
 
@@ -65,33 +46,16 @@ void MainWindow::initializeApplication()
     m_syncManager = new BookSyncManager(serverUrl, this);
     setupConnections();
     setupSync();
-}
 
-void MainWindow::setupUi()
-{
-    m_mainQuickWidget = new QQuickWidget(this);
-    m_mainQuickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    connect(m_mainQuickWidget, &QQuickWidget::statusChanged, this,
-            [this](QQuickWidget::Status status) {
-                if (status == QQuickWidget::Error) {
-                    for (const QQmlError &error : m_mainQuickWidget->errors()) {
-                        qWarning().noquote() << error.toString();
-                    }
-                } else if (status == QQuickWidget::Ready && m_mainQuickWidget->rootObject()) {
-                    QQuickItem *root = m_mainQuickWidget->rootObject();
-                    root->setProperty("mainWindow",
-                                      QVariant::fromValue(static_cast<QObject *>(this)));
-                    root->setProperty("bookCollection",
-                                      QVariant::fromValue(static_cast<QObject *>(m_bookFilterModel)));
-                    root->setProperty("scannerController",
-                                      QVariant::fromValue(static_cast<QObject *>(m_scannerController)));
-                }
-            });
-    m_mainQuickWidget->setSource(
-        QUrl(QStringLiteral("qrc:/qt/qml/ISBNBookScanner/MainView.qml")));
-    setCentralWidget(m_mainQuickWidget);
-    setWindowTitle("ISBN Book Scanner");
-    resize(950, 900);
+    engine.loadFromModule("ISBNBookScanner", "MainView");
+    if (engine.rootObjects().isEmpty()) {
+        qCritical() << "Failed to load the ISBN Book Scanner QML application window.";
+        return;
+    }
+    QObject *root = engine.rootObjects().constFirst();
+    root->setProperty("mainWindow", QVariant::fromValue(static_cast<QObject *>(this)));
+    root->setProperty("bookCollection", QVariant::fromValue(static_cast<QObject *>(m_bookFilterModel)));
+    root->setProperty("scannerController", QVariant::fromValue(static_cast<QObject *>(m_scannerController)));
 }
 
 QVariantMap MainWindow::exportBooksCsv(const QUrl &fileUrl)
@@ -175,18 +139,6 @@ QVariantMap MainWindow::importBooksCsv(const QUrl &fileUrl)
                                   .arg(importedCount).arg(skippedCount));
     result.insert("success", true);
     return result;
-}
-
-void MainWindow::applyPaletteStyles(const QPalette &palette)
-{
-    if (m_applyingPalette) return;
-    m_applyingPalette = true;
-
-    const QString windowColor = palette.color(QPalette::Window).name();
-    setPalette(palette);
-    setStyleSheet(QString("QMainWindow { background-color: %1; }").arg(windowColor));
-    emit scannerStatusChanged();
-    m_applyingPalette = false;
 }
 
 void MainWindow::toggleScannerPanel()
@@ -278,18 +230,18 @@ void MainWindow::setupSync()
             [this](const QString &isbn) { m_bookCollectionModel->removeBook(isbn); });
         connect(m_syncCoordinator, &BookSyncCoordinator::bookDetailsCloseRequested,
                 this, &MainWindow::clearSelectedBook);
-    connect(m_syncCoordinator, &BookSyncCoordinator::syncSummary, this,
-            [this](const QString &message) { statusBar()->showMessage(message, 10000); });
+        connect(m_syncCoordinator, &BookSyncCoordinator::syncSummary, this,
+            [this](const QString &message) { setApplicationStatus(message, false, 10000); });
     connect(m_syncManager, &BookSyncManager::serverConnectionChanged,
             this, &MainWindow::updateSyncConnectionIndicator);
     connect(m_syncManager, &BookSyncManager::loginSuccess, this, &MainWindow::handleLoginSuccess);
     connect(m_syncManager, &BookSyncManager::authStatusMessage,
             this, [this](const QString &message, bool isError) {
-                statusBar()->showMessage(message, isError ? 15000 : 5000);
+                setApplicationStatus(message, isError, isError ? 15000 : 5000);
             });
     connect(m_syncManager, &BookSyncManager::networkErrorOccurred, this,
             [this](const QString &message) {
-                statusBar()->showMessage("Sync failed: " + message, 15000);
+                setApplicationStatus("Sync failed: " + message, true, 15000);
             });
 }
 
@@ -343,25 +295,25 @@ QString MainWindow::submitSyncCredentials(bool registering, const QString &serve
 void MainWindow::syncNow()
 {
     if (!m_syncManager->isAuthenticated()) {
-        statusBar()->showMessage("Log in before synchronizing.", 5000);
+        setApplicationStatus("Log in before synchronizing.");
         return;
     }
     m_syncCoordinator->beginSync();
-    statusBar()->showMessage("Synchronizing bookshelf...");
+    setApplicationStatus("Synchronizing bookshelf...", false, 0);
     m_syncManager->triggerDifferentialSync();
 }
 
 void MainWindow::logoutSync()
 {
     if (m_syncManager->isSyncRequestInFlight()) {
-        statusBar()->showMessage("Wait for the current sync to finish before logging out.", 5000);
+        setApplicationStatus("Wait for the current sync to finish before logging out.");
         return;
     }
     m_syncManager->logoutAccount();
     m_syncServerReachable = false;
     emit syncConnectionChanged();
     emit syncStateChanged();
-    statusBar()->showMessage("Signed out of sync.", 5000);
+    setApplicationStatus("Signed out of sync.");
 }
 
 void MainWindow::handleLoginSuccess()
@@ -451,8 +403,36 @@ QString MainWindow::scannerStatusText() const
 QString MainWindow::scannerStatusColor() const
 {
     return m_statusTextColor.isEmpty()
-        ? QApplication::palette().color(QPalette::WindowText).name()
+        ? QGuiApplication::palette().color(QPalette::WindowText).name()
         : m_statusTextColor;
+}
+
+QString MainWindow::applicationStatusText() const
+{
+    return m_applicationStatusText;
+}
+
+bool MainWindow::applicationStatusIsError() const
+{
+    return m_applicationStatusIsError;
+}
+
+void MainWindow::setApplicationStatus(const QString &text, bool isError, int durationMs)
+{
+    m_applicationStatusText = text;
+    m_applicationStatusIsError = isError;
+    const quint64 generation = ++m_applicationStatusGeneration;
+    emit applicationStatusChanged();
+
+    if (durationMs > 0) {
+        QTimer::singleShot(durationMs, this, [this, generation]() {
+            if (generation == m_applicationStatusGeneration) {
+                m_applicationStatusText.clear();
+                m_applicationStatusIsError = false;
+                emit applicationStatusChanged();
+            }
+        });
+    }
 }
 
 void MainWindow::setBookSearchText(const QString &text)
