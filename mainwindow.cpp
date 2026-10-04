@@ -174,6 +174,7 @@ void MainWindow::setupUi()
     m_loginAction = syncMenu->addAction("Log In to Sync...");
     m_syncAction = syncMenu->addAction("Sync Now");
     m_logoutAction = syncMenu->addAction("Log Out of Sync");
+    m_loginAction->setEnabled(true);
     m_syncAction->setEnabled(false);
     m_logoutAction->setEnabled(false);
     syncMenu->addSeparator();
@@ -194,6 +195,7 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
     const QString windowColor = palette.color(QPalette::Window).name();
     const QString baseColor = palette.color(QPalette::Base).name();
     const QString textColor = palette.color(QPalette::WindowText).name();
+    const QString disabledTextColor = palette.color(QPalette::Disabled, QPalette::WindowText).name();
     const QString borderColor = palette.color(QPalette::Mid).name();
     const QString buttonColor = palette.color(QPalette::Button).name();
     const QString buttonText = palette.color(QPalette::ButtonText).name();
@@ -213,12 +215,15 @@ void MainWindow::applyPaletteStyles(const QPalette &palette)
         "QMenu { background-color: %4; border: 1px solid %3; border-radius: 6px; padding: 5px; }"
         "QMenu::item { padding: 6px 25px 6px 20px; color: %2; }"
         "QMenu::item:selected { background-color: %7; color: %8; border-radius: 4px; }"
+        "QMenu::item:disabled { color: %9; }"
+        "QMenu::item:disabled:selected { background-color: %4; color: %9; }"
         "QLineEdit { background-color: %4; border: 1px solid %3; border-radius: 6px; "
         "padding: 10px; color: %2; font-size: 14px; }"
         "QLineEdit:focus { border: 1px solid %7; }"
         "QListWidget { background-color: %4; border: 1px solid %3; border-radius: 8px; }")
         .arg(windowColor, textColor, borderColor, baseColor,
-             buttonColor, buttonText, highlightColor, highlightedText));
+               buttonColor, buttonText, highlightColor, highlightedText)
+           .arg(disabledTextColor));
 
     m_cameraToggleButton->setStyleSheet(QString(
         "QPushButton { background-color: %1; color: %2; border: 1px solid %3; "
