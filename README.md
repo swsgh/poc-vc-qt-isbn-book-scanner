@@ -36,7 +36,7 @@ cmake --build build --config Release
 
 ## Local data and synchronization
 
-The SQLite database (`bookshelf.db`) is stored in Qt's application data location and is shared with the Python scanner. Both clients use `books(isbn, title, authors, engine_source, cover_blob)`, `sync_queue(isbn, action_type)` with one pending action per ISBN, and `sync_state(username, checkpoint)`.
+The SQLite database is shared with the Python scanner. On Windows its path is `%APPDATA%\Bookshelf\ISBNBookScanner\bookshelf.db`. On Linux it is `~/.local/share/Bookshelf/ISBNBookScanner/bookshelf.db`, or `$XDG_DATA_HOME/Bookshelf/ISBNBookScanner/bookshelf.db` when `XDG_DATA_HOME` is set. Both clients use `books(isbn, title, authors, engine_source, cover_blob)`, `sync_queue(isbn, action_type)` with one pending action per ISBN, and `sync_state(username, checkpoint)`.
 
 Start the companion `poc-vc-py-bookshelf-sync-server` using its README instructions. Register and Log In prompt for the server URL as well as account credentials; the URL is saved in system settings and shared with the Python app. `BOOKSHELF_SYNC_URL` overrides the saved URL/default (`http://127.0.0.1:8000`). Use an `http://` or `https://` URL. HTTPS requires a Qt TLS backend and a certificate trusted by the system; certificate checks remain enabled, and redirects cannot downgrade HTTPS to HTTP. The Compose server itself uses HTTP, so HTTPS requires a TLS-terminating proxy or HTTPS-enabled hosting in front of it. Registration signs in automatically; login performs a differential sync, and **Sync now** flushes queued local actions and pulls remote updates. Authentication tokens are held in memory and are cleared when you log out or close the app.
 
