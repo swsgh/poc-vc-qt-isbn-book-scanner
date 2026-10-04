@@ -17,8 +17,9 @@
 #include <QSet>
 #include <QInputDialog>
 #include <QMenu>
-#include <QMenuBar>
 #include <QAction>
+#include <QPushButton>
+#include <QToolButton>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -36,8 +37,6 @@ void MainWindow::initializeApplication()
         qEnvironmentVariable("BOOKSHELF_SYNC_URL", "http://127.0.0.1:8000"), this);
     setupConnections();
     setupSync();
-
-    m_scannerView->startCapture();
 }
 
 void MainWindow::setupUi()
@@ -49,8 +48,30 @@ void MainWindow::setupUi()
     mainVerticalLayout->setContentsMargins(12, 12, 12, 12);
     mainVerticalLayout->setSpacing(10);
 
+    auto *controlsLayout = new QHBoxLayout;
+    m_cameraToggleButton = new QPushButton("📷 Show Camera", centralWidget);
+    m_cameraToggleButton->setObjectName("cameraToggleButton");
+    m_cameraToggleButton->setToolTip("Show the camera preview and start capture");
+    connect(m_cameraToggleButton, &QPushButton::clicked,
+            this, &MainWindow::toggleCameraView);
+    controlsLayout->addWidget(m_cameraToggleButton);
+    controlsLayout->addStretch();
+
+    m_settingsButton = new QToolButton(centralWidget);
+    m_settingsButton->setText(QString::fromUtf8("⚙"));
+    m_settingsButton->setToolTip("Account and synchronization options");
+    m_settingsButton->setFixedSize(40, 36);
+    m_settingsButton->setPopupMode(QToolButton::InstantPopup);
+    m_settingsButton->setStyleSheet(
+        "QToolButton { background-color: #1e1e1e; border: 1px solid #3a3a3a; "
+        "border-radius: 4px; font-size: 20px; }"
+        "QToolButton:hover { border-color: #3498db; }");
+    controlsLayout->addWidget(m_settingsButton);
+    mainVerticalLayout->addLayout(controlsLayout);
+
     m_scannerView = new BarcodeScannerView(this);
     m_scannerView->setMaximumSize(400, 220);
+    m_scannerView->hide();
     mainVerticalLayout->addWidget(m_scannerView, 0, Qt::AlignHCenter);
 
     m_isbnLabel = new QLabel(this);
@@ -61,6 +82,7 @@ void MainWindow::setupUi()
                      "#1e1e1e",
                      14,
                      8);
+    m_isbnLabel->hide();
     mainVerticalLayout->addWidget(m_isbnLabel, 0);
 
     auto *bottomRowContainer = new QWidget(this);
@@ -105,18 +127,36 @@ void MainWindow::setupUi()
     setWindowTitle("ISBN Book Scanner");
     resize(950, 750);
 
-    QMenu *syncMenu = menuBar()->addMenu("Sync");
+    auto *syncMenu = new QMenu(this);
     m_registerAction = syncMenu->addAction("Register account...");
     m_loginAction = syncMenu->addAction("Log in...");
     m_syncAction = syncMenu->addAction("Sync now");
     m_logoutAction = syncMenu->addAction("Log out");
     m_syncAction->setEnabled(false);
     m_logoutAction->setEnabled(false);
+    m_settingsButton->setMenu(syncMenu);
 
     connect(m_registerAction, &QAction::triggered, this, &MainWindow::promptRegisterAccount);
     connect(m_loginAction, &QAction::triggered, this, &MainWindow::promptLoginAccount);
     connect(m_syncAction, &QAction::triggered, this, &MainWindow::syncNow);
     connect(m_logoutAction, &QAction::triggered, this, &MainWindow::logoutSync);
+}
+
+void MainWindow::toggleCameraView()
+{
+    const bool isVisible = m_scannerView->isVisible();
+    m_scannerView->setVisible(!isVisible);
+    m_isbnLabel->setVisible(!isVisible);
+
+    if (isVisible) {
+        m_scannerView->stopCapture();
+        m_cameraToggleButton->setText("📷 Show Camera");
+        m_cameraToggleButton->setToolTip("Show the camera preview and start capture");
+    } else {
+        m_cameraToggleButton->setText("📷 Hide Camera");
+        m_cameraToggleButton->setToolTip("Hide the camera preview and stop capture");
+        m_scannerView->startCapture();
+    }
 }
 
 void MainWindow::setupDatabase()

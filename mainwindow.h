@@ -13,6 +13,8 @@ class BookSyncManager;
 class QAction;
 class QLabel;
 class QLineEdit;
+class QPushButton;
+class QToolButton;
 
 class MainWindow : public QMainWindow
 {
@@ -31,6 +33,7 @@ private slots:
     void promptLoginAccount();
     void syncNow();
     void logoutSync();
+    void toggleCameraView();
     void handleSyncCompleted(const QString &username, qint64 checkpoint,
                              bool initialSync, const QStringList &remoteIsbns);
 
@@ -61,6 +64,8 @@ private:
     BookSyncManager* m_syncManager = nullptr;
     QLabel* m_isbnLabel = nullptr;
     QLineEdit* m_searchBar = nullptr;
+    QPushButton* m_cameraToggleButton = nullptr;
+    QToolButton* m_settingsButton = nullptr;
     QAction* m_registerAction = nullptr;
     QAction* m_loginAction = nullptr;
     QAction* m_syncAction = nullptr;
