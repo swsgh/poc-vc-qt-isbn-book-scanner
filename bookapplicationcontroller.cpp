@@ -17,6 +17,12 @@
 #include <QSortFilterProxyModel>
 #include <QUrl>
 #include <algorithm>
+#include <cstdio>
+
+#if defined(Q_OS_WIN)
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 #if defined(Q_OS_ANDROID)
 #include <QJniObject>
@@ -42,6 +48,29 @@ Java_org_bookshelf_NearbyPermissionActivity_nativeNearbyPermissionResult(
                               Q_ARG(bool, granted == JNI_TRUE));
 }
 #endif
+
+namespace {
+void playScanBeep()
+{
+#if defined(Q_OS_ANDROID)
+    const jint streamType = QJniObject::getStaticField<jint>(
+        "android/media/AudioManager", "STREAM_NOTIFICATION");
+    const jint beepTone = QJniObject::getStaticField<jint>(
+        "android/media/ToneGenerator", "TONE_PROP_BEEP");
+    QJniObject toneGenerator("android/media/ToneGenerator", "(II)V", streamType, 80);
+    if (!toneGenerator.isValid()) return;
+    toneGenerator.callMethod<jboolean>("startTone", "(II)Z", beepTone, 120);
+    QTimer::singleShot(180, qApp, [toneGenerator]() mutable {
+        toneGenerator.callMethod<void>("release", "()V");
+    });
+#elif defined(Q_OS_WIN)
+    MessageBeep(MB_OK);
+#else
+    std::fputc('\a', stderr);
+    std::fflush(stderr);
+#endif
+}
+}
 
 BookApplicationController::BookApplicationController(QQmlApplicationEngine &engine, QObject *parent)
     : QObject(parent)
@@ -229,6 +258,7 @@ void BookApplicationController::setupConnections()
             setApplicationStatus("No camera detected. Use the manual ISBN field instead.", 10000);
             return;
         }
+        playScanBeep();
         setScannerStatus(QString("ISBN detected: %1").arg(isbn));
         m_metadataProvider->lookupIsbn(isbn);
     });

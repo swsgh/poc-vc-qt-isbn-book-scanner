@@ -35,6 +35,7 @@ private:
     std::unique_ptr<QMediaCaptureSession> m_captureSession;
     std::unique_ptr<QVideoSink> m_videoSink;
     QElapsedTimer m_frameThrottle;
+    QElapsedTimer m_barcodeScanThrottle;
     int m_decodeFrameCounter = 0;
     bool m_isProcessingFrame = false;
 };

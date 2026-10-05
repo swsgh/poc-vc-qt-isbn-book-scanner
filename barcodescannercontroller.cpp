@@ -128,6 +128,12 @@ void BarcodeScannerController::processVideoFrame(const QVideoFrame &frame)
 
                 const ZXing::Barcode result = ZXing::ReadBarcode(imageView, options);
                 if (result.isValid()) {
+                    if (m_barcodeScanThrottle.isValid()
+                        && m_barcodeScanThrottle.elapsed() < 4000) {
+                        m_isProcessingFrame = false;
+                        return;
+                    }
+                    m_barcodeScanThrottle.start();
                     const QString scannedText = QString::fromStdString(result.text());
                     QMetaObject::invokeMethod(this, [this, scannedText]() {
                         emit isbnScanned(scannedText);
