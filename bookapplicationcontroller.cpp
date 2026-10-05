@@ -198,7 +198,7 @@ bool BookApplicationController::submitManualIsbn(const QString &input)
             return character >= QLatin1Char('0') && character <= QLatin1Char('9');
         });
     if (!validLength || !containsOnlyDigits) {
-        setScannerStatus("ISBN must be a string of 10 or 13 numbers.", "error");
+        setScannerStatus("ISBN must be a string of 10 or 13 numbers.");
         return false;
     }
 
@@ -226,13 +226,13 @@ void BookApplicationController::setupConnections()
 {
     connect(m_scannerController, &BarcodeScannerController::isbnScanned, this, [this](const QString &isbn) {
         if (isbn == "ERROR: Camera permission denied.") {
-            setScannerStatus("No camera detected. Use the manual ISBN field instead.", "warning");
+            setScannerStatus("No camera detected. Use the manual ISBN field instead.");
             return;
         }
         m_metadataProvider->lookupIsbn(isbn);
     });
     connect(m_scannerController, &BarcodeScannerController::cameraUnavailable, this,
-            [this](const QString &message) { setScannerStatus(message, "warning"); });
+            [this](const QString &message) { setScannerStatus(message); });
     connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged, this, &BookApplicationController::updateStatusLabel);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &BookApplicationController::displayBookDetails);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
@@ -266,17 +266,17 @@ void BookApplicationController::setupSync()
         connect(m_syncCoordinator, &BookSyncCoordinator::bookDetailsCloseRequested,
                 this, &BookApplicationController::clearSelectedBook);
         connect(m_syncCoordinator, &BookSyncCoordinator::syncSummary, this,
-            [this](const QString &message) { setApplicationStatus(message, false, 10000); });
+                [this](const QString &message) { setApplicationStatus(message, 10000); });
     connect(m_syncManager, &BookSyncManager::serverConnectionChanged,
             this, &BookApplicationController::updateSyncConnectionIndicator);
     connect(m_syncManager, &BookSyncManager::loginSuccess, this, &BookApplicationController::handleLoginSuccess);
     connect(m_syncManager, &BookSyncManager::authStatusMessage,
             this, [this](const QString &message, bool isError) {
-                setApplicationStatus(message, isError, isError ? 15000 : 5000);
+                setApplicationStatus(message, isError ? 15000 : 5000);
             });
     connect(m_syncManager, &BookSyncManager::networkErrorOccurred, this,
             [this](const QString &message) {
-                setApplicationStatus("Sync failed: " + message, true, 15000);
+                setApplicationStatus("Sync failed: " + message, 15000);
             });
 }
 
@@ -415,7 +415,7 @@ void BookApplicationController::syncNow()
         return;
     }
     m_syncCoordinator->beginSync();
-    setApplicationStatus("Synchronizing bookshelf...", false, 0);
+    setApplicationStatus("Synchronizing bookshelf...", 0);
     m_syncManager->triggerDifferentialSync();
 }
 
@@ -477,10 +477,9 @@ void BookApplicationController::populateBookshelf()
     }
 }
 
-void BookApplicationController::setScannerStatus(const QString &text, const QString &severity)
+void BookApplicationController::setScannerStatus(const QString &text)
 {
     m_scannerStatusText = text;
-    m_scannerStatusSeverity = severity;
     emit scannerStatusChanged();
 }
 
@@ -488,13 +487,6 @@ void BookApplicationController::updateStatusLabel(const QString &text, bool isEr
 {
     if (isError) {
         qCritical() << "[Scanner System Error Alert]:\n" << text;
-        setScannerStatus(text, "error");
-        return;
-    }
-
-    if (text.startsWith("💡 ISBN ")) {
-        setScannerStatus(text, "warning");
-        return;
     }
     setScannerStatus(text);
 }
@@ -516,25 +508,14 @@ QString BookApplicationController::scannerStatusText() const
     return m_scannerStatusText;
 }
 
-QString BookApplicationController::scannerStatusSeverity() const
-{
-    return m_scannerStatusSeverity;
-}
-
 QString BookApplicationController::applicationStatusText() const
 {
     return m_applicationStatusText;
 }
 
-bool BookApplicationController::applicationStatusIsError() const
-{
-    return m_applicationStatusIsError;
-}
-
-void BookApplicationController::setApplicationStatus(const QString &text, bool isError, int durationMs)
+void BookApplicationController::setApplicationStatus(const QString &text, int durationMs)
 {
     m_applicationStatusText = text;
-    m_applicationStatusIsError = isError;
     const quint64 generation = ++m_applicationStatusGeneration;
     emit applicationStatusChanged();
 
@@ -542,7 +523,6 @@ void BookApplicationController::setApplicationStatus(const QString &text, bool i
         QTimer::singleShot(durationMs, this, [this, generation]() {
             if (generation == m_applicationStatusGeneration) {
                 m_applicationStatusText.clear();
-                m_applicationStatusIsError = false;
                 emit applicationStatusChanged();
             }
         });

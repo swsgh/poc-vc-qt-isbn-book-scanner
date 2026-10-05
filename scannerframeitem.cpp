@@ -5,7 +5,6 @@
 ScannerFrameItem::ScannerFrameItem(QQuickItem *parent)
     : QQuickPaintedItem(parent)
 {
-    setOpaquePainting(true);
 }
 
 bool ScannerFrameItem::hasFrame() const
@@ -25,7 +24,6 @@ void ScannerFrameItem::setFrame(const QImage &frame)
 
 void ScannerFrameItem::paint(QPainter *painter)
 {
-    painter->fillRect(boundingRect(), Qt::black);
     if (m_frame.isNull()) {
         return;
     }

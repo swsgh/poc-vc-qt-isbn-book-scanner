@@ -6,14 +6,17 @@ Item {
 
     property var appController: null
 
-    implicitWidth: 176
-    implicitHeight: 36
+    implicitWidth: 44
+    implicitHeight: 44
 
-    Button {
+    ToolButton {
         anchors.fill: parent
-        text: root.appController && root.appController.scannerVisible
-            ? "Hide Camera Preview" : "Show Camera Preview"
-        Accessible.name: "Camera preview toggle"
+        text: "📷"
+        Accessible.name: root.appController && root.appController.scannerVisible
+            ? "Hide camera preview" : "Show camera preview"
+        ToolTip.visible: hovered
+        ToolTip.text: root.appController && root.appController.scannerVisible
+            ? "Hide camera preview" : "Show camera preview"
         onClicked: {
             if (root.appController) {
                 root.appController.toggleScannerPanel()

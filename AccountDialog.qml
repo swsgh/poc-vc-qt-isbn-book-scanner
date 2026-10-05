@@ -13,7 +13,7 @@ Dialog {
     x: Math.round((parent.width - width) / 2)
     y: Math.round((parent.height - height) / 2)
     modal: true
-    width: 420
+    width: Math.min(420, parent.width - 32)
     title: registering ? "Register Sync Account" : "Log In to Sync"
 
     onOpened: {
@@ -93,7 +93,6 @@ Dialog {
         Label {
             id: errorText
             Layout.fillWidth: true
-            color: "#d64f4f"
             wrapMode: Text.WordWrap
             visible: text.length > 0
         }

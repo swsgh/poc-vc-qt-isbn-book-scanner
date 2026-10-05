@@ -8,14 +8,17 @@ Item {
 
     property var appController: null
 
+    implicitWidth: 44
+    implicitHeight: 44
+
     ToolButton {
         id: settingsButton
         anchors.fill: parent
         text: "⚙"
-        Accessible.name: "Settings and bookshelf actions"
+        Accessible.name: "Settings"
         ToolTip.visible: hovered
-        ToolTip.text: "Settings and bookshelf actions"
-        onClicked: settingsMenu.popup(settingsButton, 0, settingsButton.height)
+        ToolTip.text: "Settings"
+        onClicked: settingsMenu.popup(settingsButton, settingsButton.width, 0)
     }
 
     Menu {
@@ -29,18 +32,6 @@ Item {
                 loginDialog.open()
             }
         }
-        MenuItem {
-            text: "Sync Now"
-            enabled: root.appController && root.appController.syncAuthenticated
-            onTriggered: root.appController.syncNow()
-        }
-        MenuItem {
-            text: "Log Out of Sync"
-            enabled: root.appController && root.appController.syncAuthenticated
-            onTriggered: root.appController.logoutSync()
-        }
-
-        MenuSeparator {}
 
         MenuItem {
             text: "Register Sync Account..."
@@ -49,6 +40,20 @@ Item {
                 registerDialog.registering = true
                 registerDialog.open()
             }
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Sync Now"
+            enabled: root.appController && root.appController.syncAuthenticated
+            onTriggered: root.appController.syncNow()
+        }
+
+        MenuItem {
+            text: "Log Out of Sync"
+            enabled: root.appController && root.appController.syncAuthenticated
+            onTriggered: root.appController.logoutSync()
         }
 
         MenuSeparator {}
@@ -96,6 +101,10 @@ Item {
 
     Dialog {
         id: resultDialog
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        width: Math.min(420, parent.width - 32)
         modal: true
         title: resultTitle
         standardButtons: Dialog.Ok

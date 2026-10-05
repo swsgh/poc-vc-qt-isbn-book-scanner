@@ -9,82 +9,85 @@ ApplicationWindow {
     property var appController: null
     property var bookCollection: null
     property var scannerController: null
+    readonly property int pageMargin: 12
+    readonly property int workspaceSpacing: 10
+    readonly property int cameraMinimumWidth: 320
 
     visible: true
-    width: 950
-    height: 900
-    minimumWidth: 720
-    minimumHeight: 600
+    width: Qt.platform.os === "android" ? Screen.width : Screen.desktopAvailableWidth * 0.85
+    height: Qt.platform.os === "android" ? Screen.height : Screen.desktopAvailableHeight * 0.85
+    minimumWidth: Qt.platform.os === "android" ? 0 : cameraMinimumWidth + pageMargin * 2
     title: "ISBN Book Scanner"
-
-    SystemPalette {
-        id: systemPalette
-    }
-
-    color: systemPalette.window
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 10
+        anchors.margins: root.pageMargin
+        spacing: root.workspaceSpacing
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            Layout.minimumWidth: root.cameraMinimumWidth
+            spacing: 8
 
             ScannerToggle {
-                Layout.preferredWidth: 176
-                Layout.preferredHeight: 36
+                Layout.preferredWidth: 44
+                Layout.preferredHeight: 44
                 appController: root.appController
+            }
+
+            SettingsMenu {
+                Layout.preferredWidth: 44
+                Layout.preferredHeight: 44
+                appController: root.appController
+            }
+
+            Label {
+                Layout.preferredWidth: 44
+                Layout.preferredHeight: 44
+                text: root.appController && root.appController.syncServerReachable ? "✓" : "×"
+                font.pixelSize: 22
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                Accessible.name: root.appController && root.appController.syncServerReachable
+                    ? "Sync server is reachable" : "Sync server is unreachable"
+                ToolTip.visible: syncIndicatorHover.hovered
+                ToolTip.text: Accessible.name
+
+                HoverHandler {
+                    id: syncIndicatorHover
+                }
             }
 
             Item {
                 Layout.fillWidth: true
             }
-
-            Rectangle {
-                Layout.preferredWidth: 12
-                Layout.preferredHeight: 12
-                radius: 6
-                color: root.appController && root.appController.syncServerReachable
-                    ? "#2f9e62" : "#d64f4f"
-
-                ToolTip.visible: indicatorHover.hovered
-                ToolTip.text: root.appController && root.appController.syncServerReachable
-                    ? "Sync server is reachable" : "Sync server is unreachable"
-
-                HoverHandler {
-                    id: indicatorHover
-                }
-            }
-
-            SettingsMenu {
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 36
-                appController: root.appController
-            }
         }
 
         ScannerControls {
             Layout.fillWidth: true
+            Layout.minimumWidth: root.cameraMinimumWidth
+            Layout.minimumHeight: root.appController && root.appController.scannerVisible ? 300 : 0
+            Layout.preferredHeight: root.appController && root.appController.scannerVisible ? 310 : 0
             visible: root.appController ? root.appController.scannerVisible : false
             scannerController: root.scannerController
             appController: root.appController
         }
 
-        RowLayout {
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 10
+            Layout.minimumWidth: root.cameraMinimumWidth
+            Layout.minimumHeight: 200
 
             ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+                anchors.fill: parent
                 spacing: 8
+                visible: !root.appController || !root.appController.selectedBookVisible
 
                 BookshelfView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.minimumHeight: 180
                     collection: root.bookCollection
                     selection: root.appController
                 }
@@ -101,23 +104,18 @@ ApplicationWindow {
             }
 
             BookDetailsView {
-                Layout.preferredWidth: 290
-                Layout.fillHeight: true
+                anchors.fill: parent
                 visible: root.appController ? root.appController.selectedBookVisible : false
                 selection: root.appController
             }
         }
 
-        Text {
+        Label {
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 22 : 0
+            Layout.preferredHeight: visible ? implicitHeight : 0
             text: root.appController ? root.appController.applicationStatusText : ""
-            color: root.appController && root.appController.applicationStatusIsError
-                ? "#ff6b6b" : systemPalette.windowText
-            font.pixelSize: 12
             visible: text.length > 0
             elide: Text.ElideRight
-            verticalAlignment: Text.AlignVCenter
         }
     }
 }

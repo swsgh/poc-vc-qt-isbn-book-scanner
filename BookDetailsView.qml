@@ -2,31 +2,31 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Rectangle {
+Pane {
     id: root
 
     property var selection: null
 
-    color: systemPalette.base
-    border.color: systemPalette.mid
-    radius: 6
+    padding: 14
 
-    SystemPalette {
-        id: systemPalette
-    }
-
-    Column {
+    ScrollView {
+        id: detailsScrollView
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 12
+        anchors.bottomMargin: removeButton.height + 8
+        clip: true
+        contentWidth: availableWidth
+        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+        Column {
+            width: detailsScrollView.availableWidth
+            spacing: 12
 
         Row {
             width: parent.width
 
-            Text {
+            Label {
                 width: parent.width - closeButton.width
                 text: "Book details"
-                color: systemPalette.windowText
                 font.pixelSize: 16
                 font.bold: true
                 verticalAlignment: Text.AlignVCenter
@@ -44,28 +44,23 @@ Rectangle {
             width: parent.width
             height: 190
 
-            Rectangle {
+            Item {
                 anchors.centerIn: parent
                 width: 136
                 height: 180
-                color: systemPalette.alternateBase
-                border.color: systemPalette.mid
-                radius: 3
 
                 Image {
                     id: coverImage
                     anchors.fill: parent
-                    anchors.margins: 2
                     source: root.selection ? root.selection.selectedBookCoverSource : ""
                     fillMode: Image.PreserveAspectFit
                     visible: status === Image.Ready
                 }
 
-                Text {
+                Label {
                     anchors.fill: parent
-                    anchors.margins: 12
+                    anchors.margins: 10
                     text: root.selection ? root.selection.selectedBookTitle : ""
-                    color: systemPalette.windowText
                     font.pixelSize: 13
                     font.bold: true
                     horizontalAlignment: Text.AlignHCenter
@@ -76,26 +71,24 @@ Rectangle {
             }
         }
 
-        Text {
+        Label {
             width: parent.width
             text: root.selection ? root.selection.selectedBookTitle : ""
-            color: systemPalette.windowText
             font.pixelSize: 15
             font.bold: true
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
         }
 
-        Text {
+        Label {
             width: parent.width
             text: root.selection ? (root.selection.selectedBookAuthors || "Unknown") : "Unknown"
-            color: systemPalette.windowText
             font.italic: true
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
         }
 
-        Text {
+        Label {
             width: parent.width
             text: {
                 if (!root.selection) return ""
@@ -108,27 +101,30 @@ Rectangle {
                     lines.push("Pages: " + root.selection.selectedBookPageCount)
                 return lines.join("\n")
             }
-            color: systemPalette.windowText
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
             visible: text.length > 0
         }
 
-        Text {
+        Label {
             width: parent.width
             text: "ISBN: " + (root.selection ? root.selection.selectedBookIsbn : "")
-            color: systemPalette.windowText
             font.family: "monospace"
             font.pixelSize: 12
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WrapAnywhere
         }
 
-        Button {
-            width: parent.width
-            text: "Remove book"
-            onClicked: removeConfirmation.open()
         }
+    }
+
+    Button {
+        id: removeButton
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        text: "Remove book"
+        onClicked: removeConfirmation.open()
     }
 
     Dialog {
@@ -137,7 +133,7 @@ Rectangle {
         parent: Overlay.overlay
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
-        width: 380
+        width: Math.min(380, parent.width - 32)
         modal: true
         title: "Remove book"
 

@@ -2,12 +2,11 @@ import QtQuick
 import QtQuick.Controls
 import ISBNBookScanner
 
-Rectangle {
+Pane {
     id: root
 
     property var scannerController: null
-
-    color: "#101418"
+    padding: 0
 
     ScannerFrameItem {
         id: frameView
@@ -41,7 +40,7 @@ Rectangle {
             y: 0
             width: parent.width
             height: scanOverlay.targetY
-            color: "black"
+            color: root.palette.shadow
             opacity: 0.4
         }
         Rectangle {
@@ -49,7 +48,7 @@ Rectangle {
             y: scanOverlay.targetY + scanOverlay.targetHeight
             width: parent.width
             height: parent.height - y
-            color: "black"
+            color: root.palette.shadow
             opacity: 0.4
         }
         Rectangle {
@@ -57,7 +56,7 @@ Rectangle {
             y: scanOverlay.targetY
             width: scanOverlay.targetX
             height: scanOverlay.targetHeight
-            color: "black"
+            color: root.palette.shadow
             opacity: 0.4
         }
         Rectangle {
@@ -65,7 +64,7 @@ Rectangle {
             y: scanOverlay.targetY
             width: parent.width - x
             height: scanOverlay.targetHeight
-            color: "black"
+            color: root.palette.shadow
             opacity: 0.4
         }
 
@@ -82,50 +81,50 @@ Rectangle {
             Rectangle {
                 width: targetFrame.cornerLength
                 height: targetFrame.strokeWidth
-                color: "#27ae60"
+                color: root.palette.highlight
             }
             Rectangle {
                 width: targetFrame.strokeWidth
                 height: targetFrame.cornerLength
-                color: "#27ae60"
+                color: root.palette.highlight
             }
             Rectangle {
                 x: targetFrame.width - width
                 width: targetFrame.cornerLength
                 height: targetFrame.strokeWidth
-                color: "#27ae60"
+                color: root.palette.highlight
             }
             Rectangle {
                 x: targetFrame.width - width
                 width: targetFrame.strokeWidth
                 height: targetFrame.cornerLength
-                color: "#27ae60"
+                color: root.palette.highlight
             }
             Rectangle {
                 y: targetFrame.height - height
                 width: targetFrame.cornerLength
                 height: targetFrame.strokeWidth
-                color: "#27ae60"
+                color: root.palette.highlight
             }
             Rectangle {
                 y: targetFrame.height - height
                 width: targetFrame.strokeWidth
                 height: targetFrame.cornerLength
-                color: "#27ae60"
+                color: root.palette.highlight
             }
             Rectangle {
                 x: targetFrame.width - width
                 y: targetFrame.height - height
                 width: targetFrame.cornerLength
                 height: targetFrame.strokeWidth
-                color: "#27ae60"
+                color: root.palette.highlight
             }
             Rectangle {
                 x: targetFrame.width - width
                 y: targetFrame.height - height
                 width: targetFrame.strokeWidth
                 height: targetFrame.cornerLength
-                color: "#27ae60"
+                color: root.palette.highlight
             }
         }
 
@@ -138,15 +137,14 @@ Rectangle {
                 y: scanOverlay.height / 2 - height / 2
                 width: scanOverlay.dashWidth
                 height: 2
-                color: "#e74c3c"
+                color: root.palette.highlight
             }
         }
     }
 
-    Text {
+    Label {
         anchors.centerIn: parent
         text: "Waiting for camera frame..."
-        color: "white"
         visible: !frameView.hasFrame
     }
 }

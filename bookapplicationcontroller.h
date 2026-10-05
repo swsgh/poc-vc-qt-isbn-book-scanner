@@ -52,11 +52,9 @@ public:
     Q_PROPERTY(QUrl selectedBookCoverSource READ selectedBookCoverSource NOTIFY selectedBookChanged)
     Q_PROPERTY(bool scannerVisible READ scannerVisible NOTIFY scannerVisibilityChanged)
     Q_PROPERTY(QString scannerStatusText READ scannerStatusText NOTIFY scannerStatusChanged)
-    Q_PROPERTY(QString scannerStatusSeverity READ scannerStatusSeverity NOTIFY scannerStatusChanged)
     Q_PROPERTY(bool syncAuthenticated READ syncAuthenticated NOTIFY syncStateChanged)
     Q_PROPERTY(bool syncServerReachable READ syncServerReachable NOTIFY syncConnectionChanged)
     Q_PROPERTY(QString applicationStatusText READ applicationStatusText NOTIFY applicationStatusChanged)
-    Q_PROPERTY(bool applicationStatusIsError READ applicationStatusIsError NOTIFY applicationStatusChanged)
 
     bool selectedBookVisible() const;
     QString selectedBookTitle() const;
@@ -68,11 +66,9 @@ public:
     QUrl selectedBookCoverSource() const;
     bool scannerVisible() const;
     QString scannerStatusText() const;
-    QString scannerStatusSeverity() const;
     bool syncAuthenticated() const;
     bool syncServerReachable() const;
     QString applicationStatusText() const;
-    bool applicationStatusIsError() const;
 
 signals:
     void selectedBookChanged();
@@ -107,9 +103,8 @@ private:
     void setupConnections();
     void setupSync();
     void populateBookshelf();
-    void setScannerStatus(const QString &text, const QString &severity = "normal");
-    void setApplicationStatus(const QString &text, bool isError = false,
-                              int durationMs = 5000);
+    void setScannerStatus(const QString &text);
+    void setApplicationStatus(const QString &text, int durationMs = 5000);
     void updateSyncConnectionIndicator(bool connected);
     void handleLoginSuccess();
 
@@ -122,11 +117,9 @@ private:
     QSortFilterProxyModel* m_bookFilterModel = nullptr;
     BookInfo m_selectedBook;
     QString m_scannerStatusText = "Center an ISBN barcode to add a book";
-    QString m_scannerStatusSeverity = "normal";
     bool m_scannerVisible = false;
     bool m_syncServerReachable = false;
     QString m_applicationStatusText;
-    bool m_applicationStatusIsError = false;
     quint64 m_applicationStatusGeneration = 0;
     PendingCredentials m_pendingCredentials;
     int m_nextPermissionRequestCode = 0x51A;

@@ -10,10 +10,6 @@ Column {
 
     spacing: 6
 
-    SystemPalette {
-        id: systemPalette
-    }
-
     ScannerPreview {
         width: Math.min(root.width, 932)
         height: 220
@@ -41,12 +37,9 @@ Column {
         }
     }
 
-    Text {
+    Label {
         width: root.width
         text: root.appController ? root.appController.scannerStatusText : ""
-        color: !root.appController || root.appController.scannerStatusSeverity === "normal"
-            ? systemPalette.windowText
-            : root.appController.scannerStatusSeverity === "warning" ? "#ffaa55" : "#ff6b6b"
         font.bold: true
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
