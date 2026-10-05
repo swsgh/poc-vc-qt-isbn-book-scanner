@@ -34,6 +34,7 @@ Pane {
 
             delegate: Item {
                 required property string isbn
+                required property string title
                 required property url coverSource
 
                 width: bookGrid.cellWidth
@@ -44,6 +45,13 @@ Pane {
                     width: 110
                     height: 132
 
+                    Rectangle {
+                        anchors.fill: parent
+                        color: root.palette.alternateBase
+                        border.color: root.palette.mid
+                        visible: coverImage.status !== Image.Ready
+                    }
+
                     Image {
                         id: coverImage
                         anchors.fill: parent
@@ -53,8 +61,16 @@ Pane {
                     }
 
                     Label {
-                        anchors.centerIn: parent
-                        text: "No cover"
+                        anchors.fill: parent
+                        anchors.margins: 7
+                        text: title
+                        font.pixelSize: 11
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 8
+                        elide: Text.ElideRight
                         visible: coverImage.status !== Image.Ready
                     }
                 }
