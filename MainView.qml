@@ -24,8 +24,8 @@ ApplicationWindow {
     }
 
     visible: true
-    width: Qt.platform.os === "android" ? Screen.width : Screen.desktopAvailableWidth * 0.85
-    height: Qt.platform.os === "android" ? Screen.height : Screen.desktopAvailableHeight * 0.85
+    width: Qt.platform.os === "android" ? Screen.width : 430
+    height: Qt.platform.os === "android" ? Screen.height : 900
     minimumWidth: Qt.platform.os === "android" ? 0 : cameraMinimumWidth + pageMargin * 2
     title: "ISBN Book Scanner"
 
