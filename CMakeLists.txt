@@ -35,7 +35,10 @@ set(BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 # Force static linkage to keep your application deployment standalone
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
+set(_app_automoc ${CMAKE_AUTOMOC})
+set(CMAKE_AUTOMOC OFF)
 add_subdirectory(3rdparty/zxing-cpp)
+set(CMAKE_AUTOMOC ${_app_automoc})
 
 # --- FIX: INJECT ANDROID OPENSSL TLS BACKEND BINARIES ---
 if(ANDROID)

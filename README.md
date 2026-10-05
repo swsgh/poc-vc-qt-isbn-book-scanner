@@ -1,4 +1,4 @@
-# ISBN Book Scanner (Qt/C++)
+# ISBN Book Scanner (Qt/C++/QML)
 
 A Qt 6 desktop application that scans EAN-13 book barcodes, looks up book metadata, stores a local library, and synchronizes changes with the companion FastAPI server.
 
@@ -17,10 +17,26 @@ A Qt 6 desktop application that scans EAN-13 book barcodes, looks up book metada
 
 - CMake 3.16 or newer.
 - A C++20 compiler.
-- Qt 6 with Core, Gui, Widgets, Sql, Network, Multimedia, MultimediaWidgets, and OpenGLWidgets.
+- Qt 6 with Core, Gui, Qml, Quick, QuickControls2, QuickDialogs2, Sql, Network, and Multimedia.
 - Qt Creator with a configured desktop kit, or an equivalent CMake environment.
 
-ZXing-C++ is included under `3rdparty/zxing-cpp`. Android builds also require the Android Qt kit and the `android_openssl` CMake integration referenced by `CMakeLists.txt`.
+ZXing-C++ is included as a Git submodule under `3rdparty/zxing-cpp`, pinned to tag `v3.1.1`. Android builds also require the Android Qt kit and the `android_openssl` CMake integration referenced by `CMakeLists.txt`.
+
+### Check out ZXing-C++
+
+After cloning the Qt client repository, initialize its submodules:
+
+```sh
+git submodule update --init --recursive
+```
+
+To explicitly switch the ZXing checkout to the version used by this client:
+
+```sh
+git -C 3rdparty/zxing-cpp fetch --tags
+git -C 3rdparty/zxing-cpp switch --detach v3.1.1
+git -C 3rdparty/zxing-cpp submodule update --init --recursive
+```
 
 ## Build with Qt Creator
 
@@ -35,13 +51,55 @@ cmake -S . -B build
 cmake --build build --config Release
 ```
 
-## Local data and synchronization
+## Local data
 
-The SQLite database is shared with the Python scanner. On Windows its path is `%APPDATA%\Bookshelf\ISBNBookScanner\bookshelf.db`. On Linux it is `~/.local/share/Bookshelf/ISBNBookScanner/bookshelf.db`, or `$XDG_DATA_HOME/Bookshelf/ISBNBookScanner/bookshelf.db` when `XDG_DATA_HOME` is set. Both clients use `books(isbn, title, authors, engine_source, cover_url, publication_date, publisher, page_count)`, `sync_queue(isbn, action_type)` with one pending action per ISBN, and `sync_state(username, checkpoint)`. Cover images are cached in `QStandardPaths::CacheLocation/covers`. On Windows this is `%LOCALAPPDATA%\Bookshelf\ISBNBookScanner\cache\covers`; on Linux the default is `~/.cache/Bookshelf/ISBNBookScanner/covers`, or `$XDG_CACHE_HOME/Bookshelf/ISBNBookScanner/covers` when `XDG_CACHE_HOME` is set. Each cache filename is the SHA-256 hash of its ISBN with an `.img` extension. The cache can be deleted at any time; images are downloaded again from their stored URLs. The updated schema does not migrate older client databases; delete the old client database before running either app.
+The SQLite database is shared with the Python scanner.
 
-Start the companion `poc-vc-py-bookshelf-sync-server` using its README instructions. Register and Log In prompt for the server URL as well as account credentials; the URL is saved in system settings and shared with the Python app. `BOOKSHELF_SYNC_URL` overrides the saved URL/default (`http://127.0.0.1:8000`). Use an `http://` or `https://` URL. HTTPS requires a Qt TLS backend and a certificate trusted by the system; certificate checks remain enabled, and redirects cannot downgrade HTTPS to HTTP. The Compose server itself uses HTTP, so HTTPS requires a TLS-terminating proxy or HTTPS-enabled hosting in front of it. Registration signs in automatically; login performs a differential sync, and **Sync now** flushes queued local actions and pulls remote updates. Authentication tokens are held in memory and are cleared when you log out or close the app.
+| Platform | Database path |
+| --- | --- |
+| Windows | `%APPDATA%\Bookshelf\ISBNBookScanner\bookshelf.db` |
+| Linux default | `~/.local/share/Bookshelf/ISBNBookScanner/bookshelf.db` |
+| Linux with `XDG_DATA_HOME` | `$XDG_DATA_HOME/Bookshelf/ISBNBookScanner/bookshelf.db` |
 
-On the first sync for an account, remote records are downloaded and local books missing from the server are uploaded. Local pending actions take precedence over conflicting remote updates. This is a proof of concept; the companion server uses a development JWT secret and should not be exposed beyond a trusted environment without secure configuration.
+Both clients use the same schema:
+
+| Table | Columns and behavior |
+| --- | --- |
+| `books` | `isbn`, `title`, `authors`, `engine_source`, `cover_url`, `publication_date`, `publisher`, `page_count` |
+| `sync_queue` | `isbn`, `action_type`; one pending action per ISBN |
+| `sync_state` | `username`, `checkpoint` |
+
+Cover images are cached in `QStandardPaths::CacheLocation/covers`.
+
+| Platform | Cache path |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\Bookshelf\ISBNBookScanner\cache\covers` |
+| Linux default | `~/.cache/Bookshelf/ISBNBookScanner/covers` |
+| Linux with `XDG_CACHE_HOME` | `$XDG_CACHE_HOME/Bookshelf/ISBNBookScanner/covers` |
+
+Each cache filename is the SHA-256 hash of its ISBN with an `.img` extension. The cache can be deleted at any time; images are downloaded again from their stored URLs.
+
+The updated schema does not migrate older client databases. Delete the old client database before running either app.
+
+## Synchronization
+
+Start the companion `poc-vc-py-bookshelf-sync-server` using its README instructions.
+
+### Server URL and security
+
+Register and Log In prompt for the server URL as well as account credentials. The URL is saved in system settings and shared with the Python app. `BOOKSHELF_SYNC_URL` overrides the saved URL/default (`http://127.0.0.1:8000`). Use an `http://` or `https://` URL.
+
+HTTPS requires a Qt TLS backend and a certificate trusted by the system. Certificate checks remain enabled, and redirects cannot downgrade HTTPS to HTTP. The Compose server itself uses HTTP, so HTTPS requires a TLS-terminating proxy or HTTPS-enabled hosting in front of it.
+
+### Sync behavior
+
+1. Registration creates an account and signs in automatically. Login performs a differential sync.
+2. On the first sync for an account, remote records are downloaded and local books missing from the server are uploaded.
+3. Later syncs exchange updates and deletions. Local pending actions take precedence over conflicting remote updates.
+4. Choose **Sync Now** to flush queued local actions and pull remote updates.
+5. Choose **Log Out of Sync** to clear the in-memory authentication token.
+
+The companion server uses a development JWT secret and should not be exposed beyond a trusted environment without secure configuration.
 
 ## CSV Import and Export
 

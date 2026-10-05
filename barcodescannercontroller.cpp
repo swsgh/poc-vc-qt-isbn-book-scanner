@@ -119,7 +119,7 @@ void BarcodeScannerController::processVideoFrame(const QVideoFrame &frame)
             ZXing::ReaderOptions options;
             options.setFormats(ZXing::BarcodeFormat::EAN13);
 
-            const ZXing::Result result = ZXing::ReadBarcode(imageView, options);
+            const ZXing::Barcode result = ZXing::ReadBarcode(imageView, options);
             if (result.isValid()) {
                 const QString scannedText = QString::fromStdString(result.text());
                 QMetaObject::invokeMethod(this, [this, scannedText]() {
