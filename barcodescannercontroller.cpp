@@ -77,6 +77,11 @@ void BarcodeScannerController::processVideoFrame(const QVideoFrame &frame)
     if (m_isProcessingFrame || !frame.isValid()) {
         return;
     }
+
+    if (m_frameThrottle.isValid() && m_frameThrottle.elapsed() < 66) {
+        return;
+    }
+    m_frameThrottle.start();
     m_isProcessingFrame = true;
 
     QVideoFrame cloneFrame(frame);
@@ -107,24 +112,27 @@ void BarcodeScannerController::processVideoFrame(const QVideoFrame &frame)
             emit frameReady(image);
         }, Qt::QueuedConnection);
 
-        const int cropWidth = static_cast<int>(image.width() * 0.7);
-        const int cropHeight = static_cast<int>(image.height() * 0.25);
-        const int cropX = (image.width() - cropWidth) / 2;
-        const int cropY = (image.height() - cropHeight) / 2;
-        const QImage croppedZone = image.copy(QRect(cropX, cropY, cropWidth, cropHeight));
+        if (++m_decodeFrameCounter == 3) {
+            m_decodeFrameCounter = 0;
+            const int cropWidth = static_cast<int>(image.width() * 0.7);
+            const int cropHeight = static_cast<int>(image.height() * 0.25);
+            const int cropX = (image.width() - cropWidth) / 2;
+            const int cropY = (image.height() - cropHeight) / 2;
+            const QImage croppedZone = image.copy(QRect(cropX, cropY, cropWidth, cropHeight));
 
-        if (!croppedZone.isNull()) {
-            ZXing::ImageView imageView(croppedZone.bits(), croppedZone.width(),
-                                       croppedZone.height(), ZXing::ImageFormat::RGB);
-            ZXing::ReaderOptions options;
-            options.setFormats(ZXing::BarcodeFormat::EAN13);
+            if (!croppedZone.isNull()) {
+                ZXing::ImageView imageView(croppedZone.bits(), croppedZone.width(),
+                                           croppedZone.height(), ZXing::ImageFormat::RGB);
+                ZXing::ReaderOptions options;
+                options.setFormats(ZXing::BarcodeFormat::EAN13);
 
-            const ZXing::Barcode result = ZXing::ReadBarcode(imageView, options);
-            if (result.isValid()) {
-                const QString scannedText = QString::fromStdString(result.text());
-                QMetaObject::invokeMethod(this, [this, scannedText]() {
-                    emit isbnScanned(scannedText);
-                }, Qt::QueuedConnection);
+                const ZXing::Barcode result = ZXing::ReadBarcode(imageView, options);
+                if (result.isValid()) {
+                    const QString scannedText = QString::fromStdString(result.text());
+                    QMetaObject::invokeMethod(this, [this, scannedText]() {
+                        emit isbnScanned(scannedText);
+                    }, Qt::QueuedConnection);
+                }
             }
         }
     }

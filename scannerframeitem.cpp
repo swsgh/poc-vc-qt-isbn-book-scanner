@@ -1,6 +1,7 @@
 #include "scannerframeitem.h"
 
 #include <QPainter>
+#include <algorithm>
 
 ScannerFrameItem::ScannerFrameItem(QQuickItem *parent)
     : QQuickPaintedItem(parent)
@@ -28,13 +29,22 @@ void ScannerFrameItem::paint(QPainter *painter)
         return;
     }
 
-    const QSize targetSize = boundingRect().size().toSize();
-    const QImage scaledFrame = m_frame.scaled(
-        targetSize, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-    const QPointF frameOrigin((width() - scaledFrame.width()) / 2.0,
-                              (height() - scaledFrame.height()) / 2.0);
+    const qreal targetWidth = boundingRect().width();
+    const qreal targetHeight = boundingRect().height();
+    if (targetWidth <= 0 || targetHeight <= 0) {
+        return;
+    }
+
+    const qreal scale = std::max(targetWidth / m_frame.width(),
+                                 targetHeight / m_frame.height());
+    const qreal scaledWidth = m_frame.width() * scale;
+    const qreal scaledHeight = m_frame.height() * scale;
+    const QRectF targetRect((targetWidth - scaledWidth) / 2.0,
+                            (targetHeight - scaledHeight) / 2.0,
+                            scaledWidth, scaledHeight);
     painter->save();
     painter->setClipRect(boundingRect());
-    painter->drawImage(frameOrigin, scaledFrame);
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
+    painter->drawImage(targetRect, m_frame);
     painter->restore();
 }

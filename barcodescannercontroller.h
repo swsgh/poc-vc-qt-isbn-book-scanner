@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QImage>
+#include <QElapsedTimer>
 #include <memory>
 
 class QCamera;
@@ -33,6 +34,8 @@ private:
     std::unique_ptr<QCamera> m_camera;
     std::unique_ptr<QMediaCaptureSession> m_captureSession;
     std::unique_ptr<QVideoSink> m_videoSink;
+    QElapsedTimer m_frameThrottle;
+    int m_decodeFrameCounter = 0;
     bool m_isProcessingFrame = false;
 };
 
