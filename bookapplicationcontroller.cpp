@@ -231,8 +231,22 @@ bool BookApplicationController::submitManualIsbn(const QString &input)
         return false;
     }
 
-    m_metadataProvider->lookupIsbn(isbn);
+    lookupIsbnOnServer(isbn);
     return true;
+}
+
+void BookApplicationController::lookupIsbnOnServer(const QString &isbn)
+{
+    if (m_dbManager->hasBookInLocalDatabase(isbn)) {
+        setScannerStatus(QString("ISBN %1 is already on the shelf.").arg(isbn));
+        return;
+    }
+    if (!m_syncManager->isAuthenticated()) {
+        setApplicationStatus("Sign in to the sync server to look up books.", 10000);
+        return;
+    }
+    setApplicationStatus(QString("Looking up ISBN %1 on the server...").arg(isbn), 0);
+    m_syncManager->lookupBookByIsbn(isbn);
 }
 
 void BookApplicationController::setupDatabase()
@@ -260,13 +274,25 @@ void BookApplicationController::setupConnections()
         }
         playScanBeep();
         setScannerStatus(QString("ISBN detected: %1").arg(isbn));
-        m_metadataProvider->lookupIsbn(isbn);
+        lookupIsbnOnServer(isbn);
     });
     connect(m_scannerController, &BarcodeScannerController::cameraUnavailable, this,
             [this](const QString &message) { setApplicationStatus(message, 10000); });
     connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged, this, &BookApplicationController::updateStatusLabel);
-    connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &BookApplicationController::displayBookDetails);
-    connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
+            connect(m_syncManager, &BookSyncManager::bookLookupSucceeded, this,
+                [this](const BookInfo &info) {
+                    m_dbManager->saveRemoteBookRecord(info);
+                    m_bookCollectionModel->addBook(info, true);
+                    displayBookDetails(info);
+                    if (!info.coverUrl.isEmpty()) {
+                        m_metadataProvider->cacheCoverForBook(info.isbn, info.coverUrl);
+                    }
+                    setApplicationStatus(QString("Added %1 from the server.").arg(info.title), 5000);
+                });
+        connect(m_syncManager, &BookSyncManager::bookLookupFailed, this,
+            [this](const QString &message) { setApplicationStatus(message, 15000); });
+        connect(m_syncManager, &BookSyncManager::bookLookupWarning, this,
+            [this](const QString &message) { setApplicationStatus(message, 10000); });
 
     connect(m_dbManager, &BookDatabaseManager::databaseError, this, [this](const QString &err) {
         updateStatusLabel(err, true);
@@ -278,12 +304,6 @@ void BookApplicationController::setupConnections()
                 if (info.found) m_bookCollectionModel->addBook(info, false);
                 if (m_selectedBook.isbn == isbn) {
                     emit selectedBookChanged();
-                }
-            });
-    connect(m_metadataProvider, &BookMetadataProvider::coverRefreshFinished, this,
-            [this](int refreshed, int) {
-                if (refreshed > 0 && m_syncManager->isAuthenticated()) {
-                    m_syncCoordinator->flushQueue();
                 }
             });
 }

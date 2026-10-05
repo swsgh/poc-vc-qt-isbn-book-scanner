@@ -7,9 +7,9 @@ A Qt 6 desktop application that scans EAN-13 book barcodes, looks up book metada
 - The camera preview starts hidden; **Show Camera Preview** starts capture, and **Hide Camera Preview** stops it and reclaims the preview area. Barcode decoding uses Qt Multimedia and the bundled ZXing-C++ library.
 - Enter a 10- or 13-digit ISBN manually in the scanner panel and select **Lookup** when scanning is unavailable.
 - The top-right cogwheel menu contains account and sync actions.
-- Book metadata lookup through the Open Library and Google Books providers.
+- Camera and manual ISBN lookups go through the authenticated sync server; provider credentials stay on the server.
 - Import and export the library as CSV from the cogwheel menu.
-- Local SQLite storage for book details, cover URLs, and a persistent sync queue; downloaded images live in the local cache.
+- Local SQLite storage for server-returned book details, cover URLs, and a persistent sync queue; returned cover images are cached locally.
 - Search by title, author, or ISBN; inspect details and remove books.
 - Register and log in to a sync account, upload books, download remote changes, and synchronize deletions.
 
@@ -54,7 +54,7 @@ cmake --build build --config Release
 
 ## Local data
 
-The SQLite database is shared with the Python scanner.
+The SQLite database is shared with the Python scanner and stores the book records returned by the sync server.
 
 | Platform | Database path |
 | --- | --- |
@@ -66,7 +66,7 @@ Both clients use the same schema:
 
 | Table | Columns and behavior |
 | --- | --- |
-| `books` | `isbn`, `title`, `authors`, `engine_source`, `cover_url`, `publication_date`, `publisher`, `page_count` |
+| `books` | `isbn`, `title`, `authors`, `cover_url`, `publication_date`, `publisher`, `page_count` |
 | `sync_queue` | `isbn`, `action_type`; one pending action per ISBN |
 | `sync_state` | `username`, `checkpoint` |
 
@@ -84,7 +84,7 @@ The updated schema does not migrate older client databases. Delete the old clien
 
 ## Synchronization
 
-Start the companion `poc-vc-py-bookshelf-sync-server` using its README instructions.
+Start the companion `poc-vc-py-bookshelf-sync-server` using its README instructions. ISBN lookup requires an authenticated server connection.
 
 ### Server URL and security
 

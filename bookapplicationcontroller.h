@@ -106,6 +106,7 @@ private:
     void populateBookshelf();
     void setScannerStatus(const QString &text);
     void setApplicationStatus(const QString &text, int durationMs = 5000);
+    void lookupIsbnOnServer(const QString &isbn);
     void updateSyncConnectionIndicator(bool connected);
     void handleLoginSuccess();
 

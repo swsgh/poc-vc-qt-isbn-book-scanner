@@ -34,8 +34,6 @@ QVariant BookCollectionModel::data(const QModelIndex &index, int role) const
         return book.isbn;
     case AuthorsRole:
         return book.authors;
-    case EngineSourceRole:
-        return book.engineSource;
     case CoverUrlRole:
         return book.coverUrl;
     case CoverSourceRole:
@@ -64,7 +62,6 @@ QHash<int, QByteArray> BookCollectionModel::roleNames() const
         {IsbnRole, "isbn"},
         {TitleRole, "title"},
         {AuthorsRole, "authors"},
-        {EngineSourceRole, "engineSource"},
         {CoverUrlRole, "coverUrl"},
         {CoverSourceRole, "coverSource"},
         {PublicationDateRole, "publicationDate"},

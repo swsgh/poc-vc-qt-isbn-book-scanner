@@ -11,7 +11,6 @@ struct BookInfo {
     Q_PROPERTY(QString isbn MEMBER isbn)
     Q_PROPERTY(QString title MEMBER title)
     Q_PROPERTY(QString authors MEMBER authors)
-    Q_PROPERTY(QString engineSource MEMBER engineSource)
     Q_PROPERTY(QString coverUrl MEMBER coverUrl)
     Q_PROPERTY(QString publicationDate MEMBER publicationDate)
     Q_PROPERTY(QString publisher MEMBER publisher)
@@ -22,7 +21,6 @@ public:
     QString isbn;
     QString title;
     QString authors;
-    QString engineSource;
     QString coverUrl;
     QString publicationDate;
     QString publisher;

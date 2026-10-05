@@ -63,11 +63,6 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     bookcsv.cpp
     covercache.h
     covercache.cpp
-    abstractbookprovider.h
-    openlibraryprovider.h
-    openlibraryprovider.cpp
-    googlebooksprovider.h
-    googlebooksprovider.cpp
     bookdatabasemanager.h
     bookdatabasemanager.cpp
     bookcollectionmodel.h

@@ -29,6 +29,7 @@ public:
 
     // Sync API
     void uploadBookToServer(const BookInfo &info);
+    void lookupBookByIsbn(const QString &isbn);
     void deleteBookFromServer(const QString &isbn);
     void triggerDifferentialSync();
 
@@ -39,6 +40,9 @@ signals:
     void loginSuccess();
     void remoteBookUpdatesDownloaded(const QList<BookInfo> &booksToSave, const QStringList &isbnsToDelete);
     void networkErrorOccurred(const QString &errorMsg);
+    void bookLookupSucceeded(const BookInfo &info);
+    void bookLookupFailed(const QString &errorMsg);
+    void bookLookupWarning(const QString &warning);
     void uploadSucceeded(const QString &isbn);
     void deleteSucceeded(const QString &isbn);
     void syncCompleted(const QString &username, qint64 checkpoint, bool initialSync,

@@ -187,6 +187,58 @@ void BookSyncManager::setSyncCheckpoint(qint64 timestamp, bool hasCheckpoint)
 // 2. DATA SYNCHRONIZATION PIPELINES
 // =================================================================
 
+void BookSyncManager::lookupBookByIsbn(const QString &isbn)
+{
+    if (!isAuthenticated()) {
+        emit bookLookupFailed("Sign in to the sync server before looking up books.");
+        return;
+    }
+
+    QJsonObject payload;
+    payload["isbn"] = isbn;
+    const QNetworkRequest request = createAuthenticatedRequest("/api/books/lookup");
+    QNetworkReply *reply = postJsonRequest(m_networkManager, request, payload);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply->error() != QNetworkReply::NoError) {
+            const QString message = replyErrorMessage(reply, "Book lookup failed.");
+            reply->deleteLater();
+            emit bookLookupFailed(message);
+            return;
+        }
+
+        const QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
+        reply->deleteLater();
+        if (!document.isObject()) {
+            emit bookLookupFailed("The server returned an invalid book response.");
+            return;
+        }
+
+        const QJsonObject object = document.object();
+        BookInfo info;
+        info.found = true;
+        info.isbn = object.value("isbn").toString();
+        info.title = object.value("title").toString();
+        info.authors = object.value("authors").toString();
+        info.coverUrl = QUrl(m_serverUrl + "/").resolved(
+            QUrl(object.value("coverUrl").toString())).toString();
+        info.publicationDate = object.value("publicationDate").toString();
+        info.publisher = object.value("publisher").toString();
+        info.pageCount = object.value("pageCount").toInt();
+        if (info.isbn.isEmpty() || info.title.isEmpty()) {
+            emit bookLookupFailed("The server response is missing the book ISBN or title.");
+            return;
+        }
+
+        const QJsonArray warnings = object.value("warnings").toArray();
+        for (const QJsonValue &warning : warnings) {
+            if (warning.isString() && !warning.toString().isEmpty()) {
+                emit bookLookupWarning(warning.toString());
+            }
+        }
+        emit bookLookupSucceeded(info);
+    });
+}
+
 void BookSyncManager::uploadBookToServer(const BookInfo &info)
 {
     if (!isAuthenticated()) return;
