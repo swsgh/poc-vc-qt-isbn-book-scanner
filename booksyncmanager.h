@@ -26,6 +26,10 @@ public:
     bool isAuthenticated() const { return !m_token.isEmpty(); }
     bool isSyncRequestInFlight() const { return m_syncRequestInFlight; }
     QString currentUsername() const { return m_username; }
+    QString serverUrl() const { return m_serverUrl; }
+    QString accessToken() const { return m_token; }
+    QString coverEndpointForIsbn(const QString &isbn) const;
+    bool isServerCoverUrl(const QString &url, const QString &isbn) const;
 
     // Sync API
     void uploadBookToServer(const BookInfo &info);

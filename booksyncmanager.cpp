@@ -55,6 +55,17 @@ void BookSyncManager::setServerUrl(const QString &serverUrl)
     checkServerConnection();
 }
 
+QString BookSyncManager::coverEndpointForIsbn(const QString &isbn) const
+{
+    const QString encodedIsbn = QString::fromLatin1(QUrl::toPercentEncoding(isbn));
+    return m_serverUrl + "/api/books/cover/" + encodedIsbn;
+}
+
+bool BookSyncManager::isServerCoverUrl(const QString &url, const QString &isbn) const
+{
+    return QUrl(url) == QUrl(coverEndpointForIsbn(isbn));
+}
+
 void BookSyncManager::checkServerConnection()
 {
     if (!isAuthenticated() || m_healthCheckInFlight) return;
@@ -224,8 +235,8 @@ void BookSyncManager::lookupBookByIsbn(const QString &isbn)
         info.isbn = object.value("isbn").toString();
         info.title = object.value("title").toString();
         info.authors = object.value("authors").toString();
-        info.coverUrl = QUrl(m_serverUrl + "/").resolved(
-            QUrl(object.value("coverUrl").toString())).toString();
+        info.coverUrl = object.value("hasCover").toBool()
+            ? coverEndpointForIsbn(info.isbn) : QString();
         info.publicationDate = object.value("publicationDate").toString();
         info.publisher = object.value("publisher").toString();
         info.pageCount = object.value("pageCount").toInt();
@@ -259,7 +270,6 @@ void BookSyncManager::uploadBookToServer(const BookInfo &info)
     metaJson["isbn"] = info.isbn;
     metaJson["title"] = info.title;
     metaJson["authors"] = info.authors;
-    metaJson["coverUrl"] = info.coverUrl;
     metaJson["publicationDate"] = info.publicationDate;
     metaJson["publisher"] = info.publisher;
     metaJson["pageCount"] = info.pageCount;
@@ -364,7 +374,8 @@ void BookSyncManager::handleSyncResponse(const QByteArray &jsonResponse)
             info.isbn = isbn;
             info.title = bookObj.value("title").toString();
             info.authors = bookObj.value("authors").toString();
-            info.coverUrl = bookObj.value("coverUrl").toString();
+            info.coverUrl = bookObj.value("hasCover").toBool()
+                ? coverEndpointForIsbn(info.isbn) : QString();
             info.publicationDate = bookObj.value("publicationDate").toString();
             info.publisher = bookObj.value("publisher").toString();
             info.pageCount = bookObj.value("pageCount").toInt();

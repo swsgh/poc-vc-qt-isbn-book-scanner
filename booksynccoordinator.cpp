@@ -116,7 +116,9 @@ void BookSyncCoordinator::handleRemoteBookUpdates(const QList<BookInfo> &booksTo
         emit collectionBookAdded(book, true);
         ++m_downloadedCount;
         if (!book.coverUrl.isEmpty() && !CoverCache::contains(book.isbn)) {
-            m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl);
+            const QString token = m_syncManager->isServerCoverUrl(book.coverUrl, book.isbn)
+                ? m_syncManager->accessToken() : QString();
+            m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl, token);
         }
     }
 }

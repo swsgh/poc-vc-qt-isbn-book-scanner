@@ -17,8 +17,9 @@ public:
     explicit BookMetadataProvider(BookDatabaseManager* dbManager, QObject *parent = nullptr);
     ~BookMetadataProvider() override;
 
-    void cacheCoverForBook(const QString &isbn, const QString &coverUrl);
-    void refreshCoverImages();
+    void cacheCoverForBook(const QString &isbn, const QString &coverUrl,
+                           const QString &authToken = {});
+    void refreshCoverImages(const QString &serverUrl, const QString &authToken);
 
 signals:
     void lookupStatusChanged(const QString &statusText, bool isError);
@@ -35,6 +36,7 @@ private:
     QSet<QString> m_activeCoverDownloads;
     QStringList m_coverRefreshIsbns;
     QString m_currentRefreshIsbn;
+    QString m_coverRefreshAuthToken;
     int m_coverRefreshIndex = 0;
     int m_coverRefreshCount = 0;
     bool m_isRefreshingCovers = false;

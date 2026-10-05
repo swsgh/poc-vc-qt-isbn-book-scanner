@@ -311,7 +311,8 @@ void BookApplicationController::setupConnections()
                     m_bookCollectionModel->addBook(info, true);
                     displayBookDetails(info);
                     if (!info.coverUrl.isEmpty()) {
-                        m_metadataProvider->cacheCoverForBook(info.isbn, info.coverUrl);
+                        m_metadataProvider->cacheCoverForBook(
+                            info.isbn, info.coverUrl, m_syncManager->accessToken());
                     }
                     setApplicationStatus(QString("Added %1 from the server.").arg(info.title), 5000);
                 });
@@ -506,7 +507,12 @@ void BookApplicationController::syncNow()
 
 void BookApplicationController::refreshCoverImages()
 {
-    m_metadataProvider->refreshCoverImages();
+    if (!m_syncManager->isAuthenticated()) {
+        setApplicationStatus("Sign in to refresh server cover images.");
+        return;
+    }
+    m_metadataProvider->refreshCoverImages(
+        m_syncManager->serverUrl(), m_syncManager->accessToken());
 }
 
 void BookApplicationController::logoutSync()
@@ -525,6 +531,13 @@ void BookApplicationController::logoutSync()
 void BookApplicationController::handleLoginSuccess()
 {
     emit syncStateChanged();
+    for (const BookInfo &book : m_dbManager->getAllSavedBooks()) {
+        if (m_syncManager->isServerCoverUrl(book.coverUrl, book.isbn)
+            && !CoverCache::contains(book.isbn)) {
+            m_metadataProvider->cacheCoverForBook(
+                book.isbn, book.coverUrl, m_syncManager->accessToken());
+        }
+    }
 }
 
 QString BookApplicationController::defaultSyncServerUrl() const
@@ -560,11 +573,6 @@ void BookApplicationController::populateBookshelf()
 {
     const QList<BookInfo> historicalBooks = m_dbManager->getAllSavedBooks();
     m_bookCollectionModel->setBooks(historicalBooks);
-    for (const BookInfo &book : historicalBooks) {
-        if (!book.coverUrl.isEmpty() && !CoverCache::contains(book.isbn)) {
-            m_metadataProvider->cacheCoverForBook(book.isbn, book.coverUrl);
-        }
-    }
 }
 
 void BookApplicationController::setScannerStatus(const QString &text)

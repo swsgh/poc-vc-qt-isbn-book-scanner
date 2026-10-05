@@ -18,7 +18,8 @@ BookMetadataProvider::BookMetadataProvider(BookDatabaseManager* dbManager, QObje
 
 BookMetadataProvider::~BookMetadataProvider() = default;
 
-void BookMetadataProvider::cacheCoverForBook(const QString &isbn, const QString &coverUrl)
+void BookMetadataProvider::cacheCoverForBook(const QString &isbn, const QString &coverUrl,
+                                             const QString &authToken)
 {
     if (isbn.isEmpty() || coverUrl.isEmpty() || CoverCache::contains(isbn)
         || m_activeCoverDownloads.contains(isbn)) {
@@ -37,6 +38,9 @@ void BookMetadataProvider::cacheCoverForBook(const QString &isbn, const QString 
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setHeader(QNetworkRequest::UserAgentHeader, "Qt6ISBNBookScanner/1.0");
+    if (!authToken.isEmpty()) {
+        request.setRawHeader("Authorization", "Bearer " + authToken.toUtf8());
+    }
     QNetworkReply *reply = m_imageNetworkManager->get(request);
     connect(reply, &QNetworkReply::finished, this, [this, reply, isbn]() {
         const QByteArray data = reply->readAll();
@@ -60,7 +64,7 @@ void BookMetadataProvider::cacheCoverForBook(const QString &isbn, const QString 
     });
 }
 
-void BookMetadataProvider::refreshCoverImages()
+void BookMetadataProvider::refreshCoverImages(const QString &serverUrl, const QString &authToken)
 {
     if (m_isRefreshingCovers) {
         emit lookupStatusChanged("Local cover cache refresh is already running.", false);
@@ -71,7 +75,10 @@ void BookMetadataProvider::refreshCoverImages()
     for (const BookInfo &book : m_dbManager->getAllSavedBooks()) {
         const QUrl coverUrl(book.coverUrl);
         const QString scheme = coverUrl.scheme().toLower();
-        if (!book.isbn.isEmpty() && !m_activeCoverDownloads.contains(book.isbn)
+        const QString expectedUrl = serverUrl + "/api/books/cover/"
+            + QString::fromLatin1(QUrl::toPercentEncoding(book.isbn));
+        if (!book.isbn.isEmpty() && book.coverUrl == expectedUrl
+            && !m_activeCoverDownloads.contains(book.isbn)
             && coverUrl.isValid() && !coverUrl.host().isEmpty()
             && (scheme == "http" || scheme == "https")) {
             m_coverRefreshIsbns.append(book.isbn);
@@ -79,6 +86,7 @@ void BookMetadataProvider::refreshCoverImages()
     }
     m_coverRefreshIndex = 0;
     m_coverRefreshCount = 0;
+    m_coverRefreshAuthToken = authToken;
     m_isRefreshingCovers = true;
     if (m_coverRefreshIsbns.isEmpty()) {
         m_isRefreshingCovers = false;
@@ -111,7 +119,7 @@ void BookMetadataProvider::processNextCoverRefresh()
     emit lookupStatusChanged(
         QString("Refreshing local cover %1 of %2...")
             .arg(m_coverRefreshIndex).arg(m_coverRefreshIsbns.size()), false);
-    cacheCoverForBook(book.isbn, book.coverUrl);
+    cacheCoverForBook(book.isbn, book.coverUrl, m_coverRefreshAuthToken);
 }
 
 void BookMetadataProvider::finishCoverRefreshItem(const QString &isbn, bool refreshed)
