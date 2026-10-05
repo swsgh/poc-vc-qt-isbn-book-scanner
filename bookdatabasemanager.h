@@ -17,6 +17,7 @@ public:
     // Retrieves all saved items sorted by the newest scan entry sequence timestamp
     QList<BookInfo> getAllSavedBooks();
     BookInfo getBookByIsbn(const QString &isbn);
+    bool updateBookCoverUrl(const QString &isbn, const QString &coverUrl);
     // Returns true if the ISBN primary key exists in the database table rows
     bool hasBookInLocalDatabase(const QString &isbn);
     bool deleteBookRecord(const QString &isbn);

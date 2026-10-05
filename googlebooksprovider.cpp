@@ -65,15 +65,21 @@ void GoogleBooksProvider::handleReply(QNetworkReply *reply)
     info.pageCount = volumeInfo.value("pageCount").toInt();
 
     // Extract temporary string assets locally
-    QString urlSmall = "";
-    QString urlMedium = "";
+    QString urlLarge;
+    QString urlMedium;
+    QString urlSmall;
     if (volumeInfo.contains("imageLinks") && volumeInfo.value("imageLinks").isObject()) {
         QJsonObject imageLinks = volumeInfo.value("imageLinks").toObject();
-        urlSmall = imageLinks.value("smallThumbnail").toString("");
-        urlMedium = imageLinks.value("thumbnail").toString("");
+        urlLarge = imageLinks.value("extraLarge").toString(
+            imageLinks.value("large").toString());
+        urlMedium = imageLinks.value("medium").toString(
+            imageLinks.value("thumbnail").toString());
+        urlSmall = imageLinks.value("small").toString(
+            imageLinks.value("smallThumbnail").toString());
 
-        if (urlSmall.startsWith("http://")) urlSmall.replace(0, 7, "https://");
+        if (urlLarge.startsWith("http://")) urlLarge.replace(0, 7, "https://");
         if (urlMedium.startsWith("http://")) urlMedium.replace(0, 7, "https://");
+        if (urlSmall.startsWith("http://")) urlSmall.replace(0, 7, "https://");
     }
 
     // Google Books parses author tokens as a flat string array list directly inside volumeInfo
@@ -88,5 +94,5 @@ void GoogleBooksProvider::handleReply(QNetworkReply *reply)
         info.authors = "Unknown Author";
     }
 
-    emit lookupFinished(info, urlSmall, urlMedium);
+    emit lookupFinished(info, urlLarge, urlMedium, urlSmall);
 }

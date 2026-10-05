@@ -108,6 +108,10 @@ void BookSyncCoordinator::handleRemoteBookUpdates(const QList<BookInfo> &booksTo
         if (tombstones.contains(book.isbn) || pendingLocalIsbns.contains(book.isbn)) {
             continue;
         }
+        const BookInfo existing = m_database->getBookByIsbn(book.isbn);
+        if (existing.found && existing.coverUrl != book.coverUrl) {
+            CoverCache::removeImage(book.isbn);
+        }
         m_database->saveRemoteBookRecord(book);
         emit collectionBookAdded(book, true);
         ++m_downloadedCount;

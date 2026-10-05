@@ -249,6 +249,12 @@ void BookApplicationController::setupConnections()
                     emit selectedBookChanged();
                 }
             });
+    connect(m_metadataProvider, &BookMetadataProvider::coverRefreshFinished, this,
+            [this](int refreshed, int) {
+                if (refreshed > 0 && m_syncManager->isAuthenticated()) {
+                    m_syncCoordinator->flushQueue();
+                }
+            });
 }
 
 void BookApplicationController::setupSync()
@@ -417,6 +423,11 @@ void BookApplicationController::syncNow()
     m_syncCoordinator->beginSync();
     setApplicationStatus("Synchronizing bookshelf...", 0);
     m_syncManager->triggerDifferentialSync();
+}
+
+void BookApplicationController::refreshCoverImages()
+{
+    m_metadataProvider->refreshCoverImages();
 }
 
 void BookApplicationController::logoutSync()

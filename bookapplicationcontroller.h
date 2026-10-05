@@ -29,6 +29,7 @@ public:
     Q_INVOKABLE bool submitManualIsbn(const QString &input);
     Q_INVOKABLE void toggleScannerPanel();
     Q_INVOKABLE void syncNow();
+    Q_INVOKABLE void refreshCoverImages();
     Q_INVOKABLE void logoutSync();
     Q_INVOKABLE QVariantMap submitSyncCredentials(bool registering, const QString &serverUrl,
                                                   const QString &username, const QString &password,

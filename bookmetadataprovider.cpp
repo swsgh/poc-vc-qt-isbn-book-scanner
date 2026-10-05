@@ -38,6 +38,8 @@ BookMetadataProvider::~BookMetadataProvider() = default;
 
 void BookMetadataProvider::lookupIsbn(const QString &isbn)
 {
+    if (m_isRefreshingCovers) return;
+
     const bool isIsbn10 = isbn.length() == 10;
     const bool isIsbn13 = isbn.length() == 13
         && (isbn.startsWith("978") || isbn.startsWith("979"));
@@ -50,6 +52,7 @@ void BookMetadataProvider::lookupIsbn(const QString &isbn)
 
     m_isCooldownActive = true;
     m_lastScannedIsbn = isbn;
+    m_fallbackUsingGoogle = false;
     m_fallbackUrlSmall.clear();
     m_pendingInfo = BookInfo();
 
@@ -100,88 +103,199 @@ void BookMetadataProvider::cacheCoverForBook(const QString &isbn, const QString 
     });
 }
 
+void BookMetadataProvider::refreshCoverImages()
+{
+    if (m_isRefreshingCovers) {
+        emit lookupStatusChanged("Cover image refresh is already running.", false);
+        return;
+    }
+    if (m_isCooldownActive) {
+        emit lookupStatusChanged("Wait for the current ISBN lookup to finish before refreshing covers.", true);
+        return;
+    }
+
+    m_coverRefreshIsbns.clear();
+    for (const BookInfo &book : m_dbManager->getAllSavedBooks()) {
+        if (!book.isbn.isEmpty()) {
+            m_coverRefreshIsbns.append(book.isbn);
+        }
+    }
+    m_coverRefreshIndex = 0;
+    m_coverRefreshCount = 0;
+    m_isRefreshingCovers = true;
+    processNextCoverRefresh();
+}
+
+void BookMetadataProvider::processNextCoverRefresh()
+{
+    if (m_coverRefreshIndex >= m_coverRefreshIsbns.size()) {
+        m_isRefreshingCovers = false;
+        emit lookupStatusChanged(
+            QString("Refreshed %1 of %2 cover images.")
+                .arg(m_coverRefreshCount).arg(m_coverRefreshIsbns.size()), false);
+        emit coverRefreshFinished(m_coverRefreshCount, m_coverRefreshIsbns.size());
+        return;
+    }
+
+    m_refreshIsbn = m_coverRefreshIsbns.at(m_coverRefreshIndex++);
+    m_refreshUsingGoogle = false;
+    m_pendingInfo = m_dbManager->getBookByIsbn(m_refreshIsbn);
+    if (!m_pendingInfo.found) {
+        processNextCoverRefresh();
+        return;
+    }
+
+    m_fallbackUrlMedium.clear();
+    m_fallbackUrlSmall.clear();
+    emit lookupStatusChanged(
+        QString("Refreshing cover %1 of %2...")
+            .arg(m_coverRefreshIndex).arg(m_coverRefreshIsbns.size()), false);
+    m_openLibrary->requestMetadata(m_refreshIsbn);
+}
+
+void BookMetadataProvider::completeCoverRefresh(bool refreshed)
+{
+    if (refreshed) {
+        ++m_coverRefreshCount;
+    }
+    QTimer::singleShot(0, this, &BookMetadataProvider::processNextCoverRefresh);
+}
+
 void BookMetadataProvider::resetScannerCooldown() { m_isCooldownActive = false; }
 
-void BookMetadataProvider::handlePrimarySuccess(const BookInfo &info, const QString &urlSmall, const QString &urlMedium)
+void BookMetadataProvider::handlePrimarySuccess(const BookInfo &info, const QString &urlLarge,
+                                                const QString &urlMedium, const QString &urlSmall)
 {
-    m_pendingInfo = info;
-    m_fallbackUrlSmall = urlSmall; // Store in case medium asset download fails
-    downloadMediumCover(urlMedium);
+    if (m_isRefreshingCovers) {
+        const BookInfo existing = m_dbManager->getBookByIsbn(m_refreshIsbn);
+        if (!existing.found) {
+            completeCoverRefresh(false);
+            return;
+        }
+        beginCoverDownload(existing, urlLarge, urlMedium, urlSmall);
+    } else {
+        beginCoverDownload(info, urlLarge, urlMedium, urlSmall);
+    }
 }
 
 void BookMetadataProvider::handlePrimaryFailure(const QString &errorMsg)
 {
     emit lookupStatusChanged("Not found on Open Library. Querying Google Books fallback engine...", false);
-    m_googleBooks->requestMetadata(m_lastScannedIsbn);
+    m_fallbackUsingGoogle = true;
+    if (m_isRefreshingCovers) {
+        m_refreshUsingGoogle = true;
+    }
+    m_googleBooks->requestMetadata(m_isRefreshingCovers ? m_refreshIsbn : m_lastScannedIsbn);
 }
 
-void BookMetadataProvider::handleFallbackSuccess(const BookInfo &info, const QString &urlSmall, const QString &urlMedium)
+void BookMetadataProvider::handleFallbackSuccess(const BookInfo &info, const QString &urlLarge,
+                                                 const QString &urlMedium, const QString &urlSmall)
 {
-    m_pendingInfo = info;
-    m_fallbackUrlSmall = urlSmall;
-
-    if (urlMedium.isEmpty()) {
-        if (urlSmall.isEmpty()) {
-            emit bookDataReady(m_pendingInfo); // No covers available, emit immediately
-        } else {
-            downloadSmallCover(urlSmall);
+    if (m_isRefreshingCovers) {
+        const BookInfo existing = m_dbManager->getBookByIsbn(m_refreshIsbn);
+        if (!existing.found) {
+            completeCoverRefresh(false);
+            return;
         }
+        beginCoverDownload(existing, urlLarge, urlMedium, urlSmall);
     } else {
-        downloadMediumCover(urlMedium);
+        beginCoverDownload(info, urlLarge, urlMedium, urlSmall);
     }
 }
 
 void BookMetadataProvider::handleFallbackFailure(const QString &errorMsg)
 {
+    if (m_isRefreshingCovers) {
+        completeCoverRefresh(false);
+        return;
+    }
     // Pass to true so the application controller forwards it to the status area.
     emit lookupStatusChanged(errorMsg, true);
 }
 
-void BookMetadataProvider::downloadCoverImage(const QString &url, const QString &statusText, bool isMedium)
+void BookMetadataProvider::beginCoverDownload(const BookInfo &info, const QString &urlLarge,
+                                              const QString &urlMedium, const QString &urlSmall)
+{
+    m_pendingInfo = info;
+    m_fallbackUrlMedium = urlMedium;
+    m_fallbackUrlSmall = urlSmall;
+
+    if (!urlLarge.isEmpty()) {
+        downloadCoverImage(urlLarge, "Downloading large cover...", CoverSize::Large);
+    } else if (!urlMedium.isEmpty()) {
+        downloadCoverImage(urlMedium, "Downloading medium cover...", CoverSize::Medium);
+    } else if (!urlSmall.isEmpty()) {
+        downloadCoverImage(urlSmall, "Downloading small cover...", CoverSize::Small);
+    } else if (m_isRefreshingCovers) {
+        if (!m_refreshUsingGoogle) {
+            m_refreshUsingGoogle = true;
+            m_googleBooks->requestMetadata(m_refreshIsbn);
+        } else {
+            completeCoverRefresh(false);
+        }
+    } else if (!m_fallbackUsingGoogle) {
+        m_fallbackUsingGoogle = true;
+        m_googleBooks->requestMetadata(m_lastScannedIsbn);
+    } else {
+        emit bookDataReady(m_pendingInfo);
+    }
+}
+
+void BookMetadataProvider::downloadCoverImage(const QString &url, const QString &statusText,
+                                              CoverSize size)
 {
     emit lookupStatusChanged(statusText, false);
-    m_pendingInfo.coverUrl = url;
 
     QNetworkRequest req((QUrl(url)));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     req.setHeader(QNetworkRequest::UserAgentHeader, "Qt6ISBNBookScanner/1.0");
 
     QNetworkReply* reply = m_imageNetworkManager->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, isMedium]() {
-        handleCoverDownloadFinished(reply, isMedium);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, size]() {
+        handleCoverDownloadFinished(reply, size);
     });
 }
 
-void BookMetadataProvider::handleCoverDownloadFinished(QNetworkReply* reply, bool isMedium)
+void BookMetadataProvider::handleCoverDownloadFinished(QNetworkReply *reply, CoverSize size)
 {
+    const QString downloadedUrl = reply->url().toString();
     reply->deleteLater();
     QByteArray data = reply->readAll();
 
     if (reply->error() == QNetworkReply::NoError
         && CoverCache::saveImage(m_pendingInfo.isbn, data)) {
-        if (isMedium) {
+        m_pendingInfo.coverUrl = downloadedUrl;
+        if (m_isRefreshingCovers) {
+            const bool updated = m_dbManager->updateBookCoverUrl(m_pendingInfo.isbn, downloadedUrl);
+            if (updated) emit coverCached(m_pendingInfo.isbn);
+            completeCoverRefresh(updated);
+        } else {
             emit bookDataReady(m_pendingInfo);
-            return;
         }
-        emit bookDataReady(m_pendingInfo);
         return;
     }
 
-    if (isMedium && !m_fallbackUrlSmall.isEmpty()) {
-        downloadCoverImage(m_fallbackUrlSmall, "Medium cover missing. Falling back to small cover layout...", false);
+    if (size == CoverSize::Large && !m_fallbackUrlMedium.isEmpty()) {
+        downloadCoverImage(m_fallbackUrlMedium, "Large cover unavailable. Trying medium cover...",
+                           CoverSize::Medium);
+        return;
+    }
+    if (size != CoverSize::Small && !m_fallbackUrlSmall.isEmpty()) {
+        downloadCoverImage(m_fallbackUrlSmall, "Medium cover unavailable. Trying small cover...",
+                           CoverSize::Small);
         return;
     }
 
-    m_pendingInfo.coverUrl.clear();
-    emit bookDataReady(m_pendingInfo);
+    if (m_isRefreshingCovers) {
+        completeCoverRefresh(false);
+    } else {
+        if (!m_fallbackUsingGoogle) {
+            m_fallbackUsingGoogle = true;
+            m_googleBooks->requestMetadata(m_lastScannedIsbn);
+        } else {
+            m_pendingInfo.coverUrl.clear();
+            emit bookDataReady(m_pendingInfo);
+        }
+    }
 }
 
-void BookMetadataProvider::downloadMediumCover(const QString &urlMedium)
-{
-    downloadCoverImage(urlMedium, "Attempting to download medium cover file...", true);
-}
-
-void BookMetadataProvider::downloadSmallCover(const QString &urlSmall)
-{
-    downloadCoverImage(urlSmall, "Medium cover missing. Falling back to small cover layout...", false);
-}

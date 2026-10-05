@@ -16,8 +16,8 @@ public:
     virtual void requestMetadata(const QString &isbn) = 0;
 
 signals:
-    // CHANGED SIGNATURE: Appended temporary URL data tracking parameters onto the lookupFinished channel
-    void lookupFinished(const BookInfo &info, const QString &urlSmall, const QString &urlMedium);
+    void lookupFinished(const BookInfo &info, const QString &urlLarge,
+                        const QString &urlMedium, const QString &urlSmall);
     void lookupFailed(const QString &errorMsg);
 };
 

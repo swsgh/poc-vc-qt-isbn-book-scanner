@@ -80,8 +80,9 @@ void OpenLibraryProvider::handleReply(QNetworkReply *reply)
     } else {
         info.authors = book.value("by_statement").toString("Unknown Author");
     }
-    QString urlSmall = QString("https://covers.openlibrary.org/b/isbn/%1-S.jpg").arg(m_activeIsbn);
-    QString urlMedium = QString("https://covers.openlibrary.org/b/isbn/%1-M.jpg").arg(m_activeIsbn);
+    QString urlLarge = QString("https://covers.openlibrary.org/b/isbn/%1-L.jpg?default=false").arg(m_activeIsbn);
+    QString urlMedium = QString("https://covers.openlibrary.org/b/isbn/%1-M.jpg?default=false").arg(m_activeIsbn);
+    QString urlSmall = QString("https://covers.openlibrary.org/b/isbn/%1-S.jpg?default=false").arg(m_activeIsbn);
 
-    emit lookupFinished(info, urlSmall, urlMedium);
+    emit lookupFinished(info, urlLarge, urlMedium, urlSmall);
 }

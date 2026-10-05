@@ -164,6 +164,23 @@ BookInfo BookDatabaseManager::getBookByIsbn(const QString &isbn)
     return info;
 }
 
+bool BookDatabaseManager::updateBookCoverUrl(const QString &isbn, const QString &coverUrl)
+{
+    QSqlQuery query;
+    query.prepare("UPDATE books SET cover_url = ? WHERE isbn = ?");
+    query.addBindValue(coverUrl);
+    query.addBindValue(isbn);
+    if (!query.exec()) {
+        emit databaseError("Failed to update cover URL: " + query.lastError().text());
+        return false;
+    }
+    if (query.numRowsAffected() == 0) {
+        return false;
+    }
+    addPendingUpload(isbn);
+    return true;
+}
+
 bool BookDatabaseManager::hasBookInLocalDatabase(const QString &isbn)
 {
     QSqlQuery query;
