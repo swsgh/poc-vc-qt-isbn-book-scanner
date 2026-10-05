@@ -9,9 +9,19 @@ ApplicationWindow {
     property var appController: null
     property var bookCollection: null
     property var scannerController: null
+    readonly property bool keyboardVisible: Qt.platform.os === "android" && Qt.inputMethod.visible
     readonly property int pageMargin: 12
     readonly property int workspaceSpacing: 10
     readonly property int cameraMinimumWidth: 320
+
+    function updateBookFilter(field) {
+        if (appController) {
+            const start = field.selectionStart >= 0 ? field.selectionStart : field.cursorPosition
+            const end = field.selectionEnd >= 0 ? field.selectionEnd : field.cursorPosition
+            const query = field.text.slice(0, start) + field.preeditText + field.text.slice(end)
+            appController.setBookSearchText(query)
+        }
+    }
 
     visible: true
     width: Qt.platform.os === "android" ? Screen.width : Screen.desktopAvailableWidth * 0.85
@@ -73,11 +83,22 @@ ApplicationWindow {
             appController: root.appController
         }
 
+        TextField {
+            id: bookFilterField
+            Layout.fillWidth: true
+            Layout.minimumHeight: 0
+            Layout.preferredHeight: visible ? implicitHeight : 0
+            visible: !root.appController || !root.appController.selectedBookVisible
+            placeholderText: "Type to filter by title, author, or ISBN..."
+            onTextChanged: root.updateBookFilter(bookFilterField)
+            onPreeditTextChanged: root.updateBookFilter(bookFilterField)
+        }
+
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumWidth: root.cameraMinimumWidth
-            Layout.minimumHeight: 200
+            Layout.minimumHeight: root.keyboardVisible ? 0 : 200
 
             ColumnLayout {
                 anchors.fill: parent
@@ -87,20 +108,11 @@ ApplicationWindow {
                 BookshelfView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.minimumHeight: 180
+                    Layout.minimumHeight: root.keyboardVisible ? 0 : 180
                     collection: root.bookCollection
                     selection: root.appController
                 }
 
-                TextField {
-                    Layout.fillWidth: true
-                    placeholderText: "Type to filter by title, author, or ISBN..."
-                    onTextChanged: {
-                        if (root.appController) {
-                            root.appController.setBookSearchText(text)
-                        }
-                    }
-                }
             }
 
             BookDetailsView {
