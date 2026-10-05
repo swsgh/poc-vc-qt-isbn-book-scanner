@@ -74,13 +74,24 @@ ApplicationWindow {
         }
 
         ScannerControls {
+            id: scannerControls
             Layout.fillWidth: true
             Layout.minimumWidth: root.cameraMinimumWidth
-            Layout.minimumHeight: root.appController && root.appController.scannerVisible ? 300 : 0
-            Layout.preferredHeight: root.appController && root.appController.scannerVisible ? 310 : 0
+            Layout.minimumHeight: visible ? contentHeight : 0
+            Layout.preferredHeight: visible ? contentHeight : 0
             visible: root.appController ? root.appController.scannerVisible : false
             scannerController: root.scannerController
             appController: root.appController
+        }
+
+        Label {
+            Layout.fillWidth: true
+            Layout.preferredHeight: visible ? implicitHeight : 0
+            visible: !root.appController || !root.appController.selectedBookVisible
+            text: "Bookshelf"
+            font.pixelSize: 14
+            font.bold: true
+            verticalAlignment: Text.AlignVCenter
         }
 
         TextField {
@@ -130,4 +141,5 @@ ApplicationWindow {
             elide: Text.ElideRight
         }
     }
+
 }

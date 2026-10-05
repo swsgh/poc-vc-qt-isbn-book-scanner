@@ -47,7 +47,9 @@ void OpenLibraryProvider::handleReply(QNetworkReply *reply)
 
     QJsonDocument doc = QJsonDocument::fromJson(data);
     if (doc.isNull() || !doc.isObject()) {
-        emit lookupFailed("Malformed JSON response from Open Library.");
+        const QString message = "Malformed JSON response from Open Library.";
+        qWarning() << "[OpenLibrary System Trace]:" << message;
+        emit lookupFailed(message);
         return;
     }
 
@@ -55,7 +57,10 @@ void OpenLibraryProvider::handleReply(QNetworkReply *reply)
     QString lookupKey = "ISBN:" + m_activeIsbn;
 
     if (!root.contains(lookupKey)) {
-        emit lookupFailed("No matching book was found in Open Library.");
+        const QString message = QString("No matching book was found in Open Library for ISBN %1.")
+                                    .arg(m_activeIsbn);
+        qWarning() << "[OpenLibrary System Trace]:" << message;
+        emit lookupFailed(message);
         return;
     }
 

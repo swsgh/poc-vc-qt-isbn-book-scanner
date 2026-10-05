@@ -530,7 +530,7 @@ void BookApplicationController::updateStatusLabel(const QString &text, bool isEr
     if (isError) {
         qCritical() << "[Scanner System Error Alert]:\n" << text;
     }
-    setApplicationStatus(text, isError ? 15000 : 7000);
+    setApplicationStatus(text, isError ? 15000 : 5000);
 }
 
 void BookApplicationController::displayBookDetails(const BookInfo &info)

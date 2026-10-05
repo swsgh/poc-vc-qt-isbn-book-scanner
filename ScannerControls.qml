@@ -9,12 +9,21 @@ Column {
     property var appController: null
 
     spacing: 6
+    readonly property real contentHeight: childrenRect.height
 
     ScannerPreview {
         width: Math.min(root.width, 932)
         height: 220
         anchors.horizontalCenter: parent.horizontalCenter
         scannerController: root.scannerController
+    }
+
+    Label {
+        width: root.width
+        text: root.appController ? root.appController.scannerStatusText : ""
+        font.bold: true
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
     }
 
     Row {
@@ -35,14 +44,6 @@ Column {
             text: "Lookup"
             onClicked: root.lookupIsbn()
         }
-    }
-
-    Label {
-        width: root.width
-        text: root.appController ? root.appController.scannerStatusText : ""
-        font.bold: true
-        horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.WordWrap
     }
 
     function lookupIsbn() {

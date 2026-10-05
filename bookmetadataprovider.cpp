@@ -222,7 +222,6 @@ void BookMetadataProvider::handleFallbackFailure(const QString &errorMsg)
         completeCoverRefresh(false);
         return;
     }
-    // Pass to true so the application controller forwards it to the status area.
     emit lookupStatusChanged(errorMsg, true);
 }
 

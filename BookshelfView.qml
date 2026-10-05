@@ -12,15 +12,6 @@ Pane {
     Item {
         anchors.fill: parent
 
-        Label {
-            width: parent.width
-            text: "Bookshelf"
-            font.pixelSize: 14
-            font.bold: true
-            height: 22
-            verticalAlignment: Text.AlignVCenter
-        }
-
         GridView {
             id: bookGrid
 
