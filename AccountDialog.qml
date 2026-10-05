@@ -7,6 +7,7 @@ Dialog {
 
     property var appController: null
     property bool registering: false
+    property bool submissionPending: false
 
     parent: Overlay.overlay
     x: Math.round((parent.width - width) / 2)
@@ -17,6 +18,8 @@ Dialog {
 
     onOpened: {
         errorText.text = ""
+        submissionPending = false
+        submitButton.enabled = true
         serverUrl.text = appController ? appController.defaultSyncServerUrl() : ""
         username.text = registering || !appController
             ? "" : appController.rememberedSyncUsername()
@@ -24,6 +27,30 @@ Dialog {
         confirmation.text = ""
         rememberUsername.checked = appController
             ? appController.shouldRememberSyncUsername() : false
+    }
+
+    onRejected: {
+        if (submissionPending && appController) {
+            appController.cancelSyncCredentialsSubmission()
+        }
+        submissionPending = false
+    }
+
+    Connections {
+        target: root.appController
+
+        function onSyncCredentialsSubmissionFinished(success, message) {
+            if (!root.opened || !root.submissionPending) {
+                return
+            }
+            root.submissionPending = false
+            submitButton.enabled = true
+            if (success) {
+                root.accept()
+            } else {
+                errorText.text = message
+            }
+        }
     }
 
     contentItem: ColumnLayout {
@@ -81,18 +108,23 @@ Dialog {
         Item { Layout.fillWidth: true }
 
         Button {
+            id: submitButton
             text: root.registering ? "Register" : "Log In"
+            enabled: !root.submissionPending
             onClicked: {
                 if (!root.appController) {
                     errorText.text = "Account actions are unavailable."
                     return
                 }
-                const error = root.appController.submitSyncCredentials(
+                const result = root.appController.submitSyncCredentials(
                     root.registering, serverUrl.text, username.text, password.text,
                     confirmation.text, rememberUsername.checked)
-                if (error.length > 0) {
-                    errorText.text = error
-                } else {
+                if (result.status === "error") {
+                    errorText.text = result.message
+                } else if (result.status === "pending") {
+                    root.submissionPending = true
+                    submitButton.enabled = false
+                } else if (result.status === "accepted") {
                     root.accept()
                 }
             }

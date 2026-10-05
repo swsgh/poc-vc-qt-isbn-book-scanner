@@ -21,7 +21,7 @@ class BookApplicationController : public QObject
 
 public:
     explicit BookApplicationController(QQmlApplicationEngine &engine, QObject *parent = nullptr);
-    ~BookApplicationController() override = default;
+    ~BookApplicationController() override;
 
     Q_INVOKABLE void selectBook(const QString &isbn);
     Q_INVOKABLE void clearSelectedBook();
@@ -30,10 +30,11 @@ public:
     Q_INVOKABLE void toggleScannerPanel();
     Q_INVOKABLE void syncNow();
     Q_INVOKABLE void logoutSync();
-    Q_INVOKABLE QString submitSyncCredentials(bool registering, const QString &serverUrl,
-                                              const QString &username, const QString &password,
-                                              const QString &confirmation,
-                                              bool rememberUsername);
+    Q_INVOKABLE QVariantMap submitSyncCredentials(bool registering, const QString &serverUrl,
+                                                  const QString &username, const QString &password,
+                                                  const QString &confirmation,
+                                                  bool rememberUsername);
+    Q_INVOKABLE void cancelSyncCredentialsSubmission();
     Q_INVOKABLE QVariantMap importBooksCsv(const QUrl &fileUrl);
     Q_INVOKABLE QVariantMap exportBooksCsv(const QUrl &fileUrl);
     Q_INVOKABLE QString defaultSyncServerUrl() const;
@@ -80,13 +81,28 @@ signals:
     void syncStateChanged();
     void syncConnectionChanged();
     void applicationStatusChanged();
+    void syncCredentialsSubmissionFinished(bool success, const QString &message);
 
 private slots:
     void updateStatusLabel(const QString &text, bool isError);
     void displayBookDetails(const BookInfo &info);
+    void handleNearbyPermissionResult(int requestCode, bool granted);
 
 private:
+    struct PendingCredentials {
+        bool active = false;
+        bool registering = false;
+        bool rememberUsername = false;
+        int requestCode = 0;
+        QString serverUrl;
+        QString username;
+        QString password;
+    };
+
     void initializeApplication(QQmlApplicationEngine &engine);
+    void startSyncWithCredentials(const PendingCredentials &credentials);
+    QVariantMap credentialSubmissionResult(const QString &status,
+                                           const QString &message = {}) const;
     void setupDatabase();
     void setupConnections();
     void setupSync();
@@ -112,6 +128,8 @@ private:
     QString m_applicationStatusText;
     bool m_applicationStatusIsError = false;
     quint64 m_applicationStatusGeneration = 0;
+    PendingCredentials m_pendingCredentials;
+    int m_nextPermissionRequestCode = 0x51A;
 };
 
 #endif // BOOKAPPLICATIONCONTROLLER_H

@@ -107,16 +107,19 @@ qt_add_qml_module(ISBNBookScanner
         AccountDialog.qml
 )
 
-# Inject Android permissions
-qt_add_android_permission(ISBNBookScanner
-    NAME "android.permission.NEARBY_WIFI_DEVICES"
-    ATTRIBUTES minSdkVersion 33 usesPermissionFlags neverForLocation
-)
+if(ANDROID)
+    qt_add_android_permission(ISBNBookScanner
+        NAME "android.permission.NEARBY_WIFI_DEVICES"
+        ATTRIBUTES usesPermissionFlags neverForLocation
+    )
 
-qt_add_android_permission(ISBNBookScanner
-    NAME "android.permission.ACCESS_LOCAL_NETWORK"
-    ATTRIBUTES minSdkVersion 37
-)
+    qt_add_android_permission(ISBNBookScanner
+        NAME "android.permission.ACCESS_LOCAL_NETWORK"
+    )
+
+    set_property(TARGET ISBNBookScanner PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
+        "${CMAKE_CURRENT_SOURCE_DIR}/android")
+endif()
 
 # Platform-Specific Tailoring
 if(WIN32)

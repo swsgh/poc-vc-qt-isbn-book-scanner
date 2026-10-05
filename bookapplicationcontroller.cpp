@@ -18,10 +18,47 @@
 #include <QUrl>
 #include <algorithm>
 
+#if defined(Q_OS_ANDROID)
+#include <QJniObject>
+#include <QMetaObject>
+#include <QPointer>
+#include <QtCore/qcoreapplication_platform.h>
+#endif
+
+#if defined(Q_OS_ANDROID)
+namespace {
+QPointer<BookApplicationController> permissionController;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_bookshelf_NearbyPermissionActivity_nativeNearbyPermissionResult(
+    JNIEnv *, jclass, jint requestCode, jboolean granted)
+{
+    if (!permissionController) {
+        return;
+    }
+    QMetaObject::invokeMethod(permissionController.data(), "handleNearbyPermissionResult",
+                              Qt::QueuedConnection, Q_ARG(int, requestCode),
+                              Q_ARG(bool, granted == JNI_TRUE));
+}
+#endif
+
 BookApplicationController::BookApplicationController(QQmlApplicationEngine &engine, QObject *parent)
     : QObject(parent)
 {
+#if defined(Q_OS_ANDROID)
+    permissionController = this;
+#endif
     initializeApplication(engine);
+}
+
+BookApplicationController::~BookApplicationController()
+{
+#if defined(Q_OS_ANDROID)
+    if (permissionController == this) {
+        permissionController.clear();
+    }
+#endif
 }
 
 void BookApplicationController::initializeApplication(QQmlApplicationEngine &engine)
@@ -249,9 +286,12 @@ void BookApplicationController::updateSyncConnectionIndicator(bool connected)
     emit syncConnectionChanged();
 }
 
-QString BookApplicationController::submitSyncCredentials(bool registering, const QString &serverUrl,
-                                          const QString &username, const QString &password,
-                                          const QString &confirmation, bool rememberUsername)
+QVariantMap BookApplicationController::submitSyncCredentials(bool registering,
+                                                              const QString &serverUrl,
+                                                              const QString &username,
+                                                              const QString &password,
+                                                              const QString &confirmation,
+                                                              bool rememberUsername)
 {
     QString normalizedUrl = serverUrl.trimmed();
     while (normalizedUrl.endsWith('/')) normalizedUrl.chop(1);
@@ -259,35 +299,113 @@ QString BookApplicationController::submitSyncCredentials(bool registering, const
     const QString scheme = parsedUrl.scheme().toLower();
     if (!parsedUrl.isValid() || parsedUrl.host().isEmpty()
         || (scheme != "http" && scheme != "https")) {
-        return "Enter an absolute http:// or https:// server URL.";
+        return credentialSubmissionResult("error",
+                                          "Enter an absolute http:// or https:// server URL.");
     }
     if (username.trimmed().isEmpty() || password.isEmpty()) {
-        return "Enter a username and password.";
+        return credentialSubmissionResult("error", "Enter a username and password.");
     }
     if (registering && password != confirmation) {
-        return "The passwords do not match.";
+        return credentialSubmissionResult("error", "The passwords do not match.");
     }
 
+    PendingCredentials credentials;
+    credentials.registering = registering;
+    credentials.rememberUsername = rememberUsername;
+    credentials.serverUrl = normalizedUrl;
+    credentials.username = username.trimmed();
+    credentials.password = password;
+
+#if defined(Q_OS_ANDROID)
+    const int sdkVersion = QNativeInterface::QAndroidApplication::sdkVersion();
+    if (sdkVersion >= 33) {
+        if (m_pendingCredentials.active) {
+            return credentialSubmissionResult("error", "A permission request is already in progress.");
+        }
+        if (!QNativeInterface::QAndroidApplication::isActivityContext()) {
+            return credentialSubmissionResult("error", "Android activity is unavailable.");
+        }
+
+        const QString permission = sdkVersion >= 37
+            ? QStringLiteral("android.permission.ACCESS_LOCAL_NETWORK")
+            : QStringLiteral("android.permission.NEARBY_WIFI_DEVICES");
+        const auto androidContext = QNativeInterface::QAndroidApplication::context();
+        const QJniObject activity(androidContext.object());
+        const QJniObject javaPermission = QJniObject::fromString(permission);
+        const jint permissionStatus = activity.callMethod<jint>(
+            "checkSelfPermission", "(Ljava/lang/String;)I",
+            javaPermission.object<jstring>());
+
+        if (permissionStatus != 0) {
+            credentials.active = true;
+            credentials.requestCode = m_nextPermissionRequestCode++;
+            m_pendingCredentials = credentials;
+            QNativeInterface::QAndroidApplication::runOnAndroidMainThread(
+                [activity, javaPermission, requestCode = credentials.requestCode]() {
+                    activity.callMethod<void>("requestNearbyNetworkPermission",
+                                              "(Ljava/lang/String;I)V",
+                                              javaPermission.object<jstring>(), requestCode);
+                });
+            return credentialSubmissionResult("pending");
+        }
+    }
+#endif
+
+    startSyncWithCredentials(credentials);
+    return credentialSubmissionResult("accepted");
+}
+
+QVariantMap BookApplicationController::credentialSubmissionResult(const QString &status,
+                                                                   const QString &message) const
+{
+    return {{"status", status}, {"message", message}};
+}
+
+void BookApplicationController::startSyncWithCredentials(const PendingCredentials &credentials)
+{
     QSettings settings;
-    settings.setValue("sync/server_url", normalizedUrl);
-    if (!registering) {
-        if (rememberUsername) {
-            settings.setValue("sync/username", username.trimmed());
+    settings.setValue("sync/server_url", credentials.serverUrl);
+    if (!credentials.registering) {
+        if (credentials.rememberUsername) {
+            settings.setValue("sync/username", credentials.username);
         } else {
             settings.remove("sync/username");
         }
     }
 
     m_syncManager->setSyncCheckpoint(
-        m_dbManager->getSyncCheckpoint(username.trimmed()),
-        m_dbManager->hasSyncCheckpoint(username.trimmed()));
-    m_syncManager->setServerUrl(normalizedUrl);
-    if (registering) {
-        m_syncManager->registerAccount(username.trimmed(), password);
+        m_dbManager->getSyncCheckpoint(credentials.username),
+        m_dbManager->hasSyncCheckpoint(credentials.username));
+    m_syncManager->setServerUrl(credentials.serverUrl);
+    if (credentials.registering) {
+        m_syncManager->registerAccount(credentials.username, credentials.password);
     } else {
-        m_syncManager->loginAccount(username.trimmed(), password);
+        m_syncManager->loginAccount(credentials.username, credentials.password);
     }
-    return {};
+}
+
+void BookApplicationController::cancelSyncCredentialsSubmission()
+{
+    m_pendingCredentials = PendingCredentials{};
+}
+
+void BookApplicationController::handleNearbyPermissionResult(int requestCode, bool granted)
+{
+    if (!m_pendingCredentials.active || m_pendingCredentials.requestCode != requestCode) {
+        return;
+    }
+
+    const PendingCredentials credentials = m_pendingCredentials;
+    m_pendingCredentials = PendingCredentials{};
+    if (!granted) {
+        emit syncCredentialsSubmissionFinished(
+            false,
+            "Nearby network permission is needed for sync. Allow it in Android app settings, then try again.");
+        return;
+    }
+
+    startSyncWithCredentials(credentials);
+    emit syncCredentialsSubmissionFinished(true, {});
 }
 
 void BookApplicationController::syncNow()
