@@ -288,7 +288,7 @@ void BookApplicationController::setupDatabase()
     const QString crossPlatformDbPath = QDir::cleanPath(appDataFolder + "/bookshelf.db");
     m_dbManager->initDatabase(crossPlatformDbPath);
 
-    m_metadataProvider = new BookMetadataProvider(m_dbManager, this);
+    m_metadataProvider = new BookMetadataProvider(this);
 }
 
 void BookApplicationController::setupConnections()
@@ -503,16 +503,6 @@ void BookApplicationController::syncNow()
     m_syncCoordinator->beginSync();
     setApplicationStatus("Synchronizing bookshelf...", 0);
     m_syncManager->triggerDifferentialSync();
-}
-
-void BookApplicationController::refreshCoverImages()
-{
-    if (!m_syncManager->isAuthenticated()) {
-        setApplicationStatus("Sign in to refresh server cover images.");
-        return;
-    }
-    m_metadataProvider->refreshCoverImages(
-        m_syncManager->serverUrl(), m_syncManager->accessToken());
 }
 
 void BookApplicationController::logoutSync()

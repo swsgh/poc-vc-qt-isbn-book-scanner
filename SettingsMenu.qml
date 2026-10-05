@@ -51,12 +51,6 @@ Item {
         }
 
         MenuItem {
-            text: "Refresh Cover Image Cache"
-            enabled: !!root.appController
-            onTriggered: root.appController.refreshCoverImages()
-        }
-
-        MenuItem {
             text: "Log Out of Sync"
             enabled: root.appController && root.appController.syncAuthenticated
             onTriggered: root.appController.logoutSync()
