@@ -7,6 +7,7 @@ Item {
     id: root
 
     property var appController: null
+    signal authenticationRequested(bool registering)
 
     implicitWidth: 44
     implicitHeight: 44
@@ -28,8 +29,12 @@ Item {
             text: "Log In to Sync..."
             enabled: root.appController && !root.appController.syncAuthenticated
             onTriggered: {
-                loginDialog.registering = false
-                loginDialog.open()
+                if (Qt.platform.os === "android") {
+                    root.authenticationRequested(false)
+                } else {
+                    loginDialog.registering = false
+                    loginDialog.open()
+                }
             }
         }
 
@@ -64,8 +69,12 @@ Item {
             text: "Register Sync Account..."
             enabled: root.appController && !root.appController.syncAuthenticated
             onTriggered: {
-                registerDialog.registering = true
-                registerDialog.open()
+                if (Qt.platform.os === "android") {
+                    root.authenticationRequested(true)
+                } else {
+                    registerDialog.registering = true
+                    registerDialog.open()
+                }
             }
         }
     }

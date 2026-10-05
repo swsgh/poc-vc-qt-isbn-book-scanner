@@ -24,6 +24,22 @@ ApplicationWindow {
         }
     }
 
+    function openAuthenticationPage(registering) {
+        if (Qt.platform.os === "android" && authenticationStack.depth === 1) {
+            authenticationStack.push(authenticationPageComponent, {
+                appController: root.appController,
+                registering: registering,
+            })
+        }
+    }
+
+    onClosing: function(close) {
+        if (authenticationStack.depth > 1) {
+            close.accepted = false
+            authenticationStack.pop()
+        }
+    }
+
     Connections {
         target: root.appController
 
@@ -116,6 +132,9 @@ ApplicationWindow {
                 Layout.preferredWidth: 44
                 Layout.preferredHeight: 44
                 appController: root.appController
+                onAuthenticationRequested: function(registering) {
+                    root.openAuthenticationPage(registering)
+                }
             }
 
             Label {
@@ -206,6 +225,28 @@ ApplicationWindow {
             text: root.appController ? root.appController.applicationStatusText : ""
             visible: text.length > 0
             elide: Text.ElideRight
+        }
+    }
+
+    StackView {
+        id: authenticationStack
+        z: 10
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: Qt.platform.os === "android" && Qt.inputMethod.visible
+            && Qt.inputMethod.keyboardRectangle.height > 0
+            ? Math.max(1, Math.min(parent.height, Qt.inputMethod.keyboardRectangle.y))
+            : parent.height
+        visible: depth > 1
+        initialItem: Item {}
+    }
+
+    Component {
+        id: authenticationPageComponent
+
+        AuthPage {
+            onCloseRequested: authenticationStack.pop()
         }
     }
 

@@ -104,6 +104,7 @@ qt_add_qml_module(ISBNBookScanner
         ScannerControls.qml
         SettingsMenu.qml
         AccountDialog.qml
+        AuthPage.qml
 )
 
 if(ANDROID)

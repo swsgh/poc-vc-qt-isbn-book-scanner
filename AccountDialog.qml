@@ -8,13 +8,18 @@ Dialog {
     property var appController: null
     property bool registering: false
     property bool submissionPending: false
+    readonly property real dialogUsableHeight: Qt.platform.os === "android"
+        && Qt.inputMethod.visible
+        && Qt.inputMethod.keyboardRectangle.height > 0
+        ? Math.min(parent.height, Qt.inputMethod.keyboardRectangle.y)
+        : parent.height
 
     parent: Overlay.overlay
     x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
+    y: Math.max(12, Math.round((dialogUsableHeight - height) / 2))
     modal: true
     width: Math.min(420, parent.width - 32)
-    title: registering ? "Register Sync Account" : "Log In to Sync"
+    title: registering ? "Register Sync Account" : ""
 
     onOpened: {
         errorText.text = ""
@@ -27,6 +32,17 @@ Dialog {
         confirmation.text = ""
         rememberUsername.checked = appController
             ? appController.shouldRememberSyncUsername() : false
+        if (Qt.platform.os === "android") {
+            Qt.callLater(function() {
+                if (!root.opened) {
+                    return
+                }
+                const field = !root.registering && username.text.length > 0
+                    ? password : username
+                field.forceActiveFocus()
+                Qt.inputMethod.show()
+            })
+        }
     }
 
     onRejected: {
@@ -99,6 +115,8 @@ Dialog {
     }
 
     footer: RowLayout {
+        Layout.topMargin: -12
+
         Button {
             text: "Cancel"
             onClicked: root.reject()
