@@ -104,4 +104,4 @@ The companion server uses a development JWT secret and should not be exposed bey
 
 ## CSV Import and Export
 
-Use **Import CSV...** and **Export CSV...** in the cogwheel menu. CSV files must have the exact headers `ISBN`, `Title`, `Author`, `Engine Source`, `Cover URL`, `First Publication Date`, `Publisher`, and `Page Count`, in that order. Imported books are queued for synchronization.
+Use **Import CSV...** and **Export CSV...** in the cogwheel menu. CSV files must have the exact headers `ISBN`, `Title`, `Author`, `Cover URL`, `First Publication Date`, `Publisher`, and `Page Count`, in that order. Imported books are queued for synchronization.

@@ -71,7 +71,7 @@ bool parseRecords(const QString &contents, QList<QStringList> &records)
 
 QStringList BookCsv::headers()
 {
-    return {"ISBN", "Title", "Author", "Engine Source", "Cover URL",
+    return {"ISBN", "Title", "Author", "Cover URL",
             "First Publication Date", "Publisher", "Page Count"};
 }
 
@@ -92,7 +92,6 @@ bool BookCsv::writeFile(const QString &filePath, const QList<BookInfo> &books, Q
         stream << escapeField(book.isbn) << ','
                << escapeField(book.title) << ','
                << escapeField(book.authors) << ','
-               << escapeField(book.engineSource) << ','
                << escapeField(book.coverUrl) << ','
                << escapeField(book.publicationDate) << ','
                << escapeField(book.publisher) << ','
@@ -147,12 +146,11 @@ bool BookCsv::readFile(const QString &filePath, QList<BookInfo> &books,
         info.isbn = valueAt(0);
         info.title = valueAt(1);
         info.authors = valueAt(2);
-        info.engineSource = valueAt(3);
-        info.coverUrl = valueAt(4);
-        info.publicationDate = valueAt(5);
-        info.publisher = valueAt(6);
+        info.coverUrl = valueAt(3);
+        info.publicationDate = valueAt(4);
+        info.publisher = valueAt(5);
 
-        const QString pageCountText = valueAt(7);
+        const QString pageCountText = valueAt(6);
         bool pageCountValid = true;
         info.pageCount = pageCountText.isEmpty() ? 0 : pageCountText.toInt(&pageCountValid);
         if (info.isbn.isEmpty() || info.title.isEmpty()

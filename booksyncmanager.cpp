@@ -192,7 +192,6 @@ void BookSyncManager::uploadBookToServer(const BookInfo &info)
     metaJson["isbn"] = info.isbn;
     metaJson["title"] = info.title;
     metaJson["authors"] = info.authors;
-    metaJson["engineSource"] = info.engineSource;
     metaJson["coverUrl"] = info.coverUrl;
     metaJson["publicationDate"] = info.publicationDate;
     metaJson["publisher"] = info.publisher;
@@ -298,7 +297,6 @@ void BookSyncManager::handleSyncResponse(const QByteArray &jsonResponse)
             info.isbn = isbn;
             info.title = bookObj.value("title").toString();
             info.authors = bookObj.value("authors").toString();
-            info.engineSource = bookObj.value("engineSource").toString();
             info.coverUrl = bookObj.value("coverUrl").toString();
             info.publicationDate = bookObj.value("publicationDate").toString();
             info.publisher = bookObj.value("publisher").toString();
