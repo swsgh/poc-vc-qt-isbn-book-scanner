@@ -9,11 +9,11 @@ Pane {
 
     padding: 0
 
-    Column {
+    Item {
         anchors.fill: parent
-        spacing: 6
 
         Label {
+            width: parent.width
             text: "Bookshelf"
             font.pixelSize: 14
             font.bold: true
@@ -24,13 +24,22 @@ Pane {
         GridView {
             id: bookGrid
 
-            width: parent.width
+            y: 28
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: count === 0 ? parent.width
+                : Math.min(parent.width, occupiedColumnCount * cellWidth)
             height: parent.height - 28
             cellWidth: 136
             cellHeight: 160
             clip: true
             model: root.collection
             flow: height < cellHeight * 2 ? GridView.TopToBottom : GridView.LeftToRight
+            readonly property int occupiedColumnCount: {
+                if (flow === GridView.LeftToRight) {
+                    return Math.min(count, Math.max(1, Math.floor(parent.width / cellWidth)))
+                }
+                return Math.ceil(count / Math.max(1, Math.floor(height / cellHeight)))
+            }
 
             delegate: Item {
                 required property string isbn
