@@ -33,15 +33,6 @@ Item {
             }
         }
 
-        MenuItem {
-            text: "Register Sync Account..."
-            enabled: root.appController && !root.appController.syncAuthenticated
-            onTriggered: {
-                registerDialog.registering = true
-                registerDialog.open()
-            }
-        }
-
         MenuSeparator {}
 
         MenuItem {
@@ -65,6 +56,17 @@ Item {
         MenuItem {
             text: "Export CSV..."
             onTriggered: exportDialog.open()
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Register Sync Account..."
+            enabled: root.appController && !root.appController.syncAuthenticated
+            onTriggered: {
+                registerDialog.registering = true
+                registerDialog.open()
+            }
         }
     }
 
