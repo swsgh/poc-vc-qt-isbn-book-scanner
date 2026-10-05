@@ -42,12 +42,12 @@ Pane {
 
         Item {
             width: parent.width
-            height: 190
+            height: 250
 
             Item {
                 anchors.centerIn: parent
-                width: 136
-                height: 180
+                width: 180
+                height: 240
 
                 Image {
                     id: coverImage
