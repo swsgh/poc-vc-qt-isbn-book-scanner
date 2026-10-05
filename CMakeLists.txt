@@ -75,6 +75,21 @@ qt_add_executable(ISBNBookScanner MANUAL_FINALIZATION
     README.md
 )
 
+# 4. Target Link Libraries & Platform Setup
+target_link_libraries(ISBNBookScanner PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::QuickDialogs2
+    Qt6::Sql
+    Qt6::Network
+    Qt6::Multimedia
+    ZXing::ZXing
+)
+
+# 5. QML Module Registration
 qt_add_qml_module(ISBNBookScanner
     URI ISBNBookScanner
     VERSION 1.0
@@ -92,18 +107,15 @@ qt_add_qml_module(ISBNBookScanner
         AccountDialog.qml
 )
 
-# 4. Target Link Libraries & Platform Setup
-target_link_libraries(ISBNBookScanner PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Qml
-    Qt6::Quick
-    Qt6::QuickControls2
-    Qt6::QuickDialogs2
-    Qt6::Sql
-    Qt6::Network
-    Qt6::Multimedia
-    ZXing::ZXing
+# Inject Android permissions
+qt_add_android_permission(ISBNBookScanner
+    NAME "android.permission.NEARBY_WIFI_DEVICES"
+    ATTRIBUTES minSdkVersion 33 usesPermissionFlags neverForLocation
+)
+
+qt_add_android_permission(ISBNBookScanner
+    NAME "android.permission.ACCESS_LOCAL_NETWORK"
+    ATTRIBUTES minSdkVersion 37
 )
 
 # Platform-Specific Tailoring
