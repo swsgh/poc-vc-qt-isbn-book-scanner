@@ -47,8 +47,8 @@ Pane {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: root.palette.alternateBase
-                        border.color: root.palette.mid
+                        color: "#ffffff"
+                        border.color: "#c8c8c8"
                         visible: coverImage.status !== Image.Ready
                     }
 
@@ -64,6 +64,7 @@ Pane {
                         anchors.fill: parent
                         anchors.margins: 7
                         text: title
+                        color: "#202020"
                         font.pixelSize: 11
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter
