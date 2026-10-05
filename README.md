@@ -27,7 +27,7 @@ ZXing-C++ is included as a Git submodule under `3rdparty/zxing-cpp`, pinned to t
 After cloning the Qt client repository, initialize its submodules:
 
 ```sh
-git submodule update --init --recursive
+git submodule update --init -- 3rdparty/zxing-cpp
 ```
 
 To explicitly switch the ZXing checkout to the version used by this client:
@@ -35,8 +35,9 @@ To explicitly switch the ZXing checkout to the version used by this client:
 ```sh
 git -C 3rdparty/zxing-cpp fetch --tags
 git -C 3rdparty/zxing-cpp switch --detach v3.1.1
-git -C 3rdparty/zxing-cpp submodule update --init --recursive
 ```
+
+This scanner only reads barcodes, so ZXing writer support is disabled and its nested `zint` submodule is not needed.
 
 ## Build with Qt Creator
 

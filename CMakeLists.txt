@@ -25,12 +25,13 @@ find_package(Qt6 REQUIRED COMPONENTS
 
 qt_policy(SET QTP0001 NEW)
 
-# 2. Configure ZXing-C++ Subdirectory Flags (Scoped Dependencies)
-# Disable optional components to accelerate build times
-set(BUILD_WRAPPERS OFF CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(BUILD_BLACKBOX_TESTS OFF CACHE BOOL "" FORCE)
-set(BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+# 2. Configure ZXing-C++ v3.1.1 options
+set(ZXING_C_API OFF CACHE BOOL "" FORCE)
+set(ZXING_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(ZXING_EXAMPLES_QT OFF CACHE BOOL "" FORCE)
+set(ZXING_BLACKBOX_TESTS OFF CACHE BOOL "" FORCE)
+set(ZXING_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+set(ZXING_WRITERS OFF CACHE STRING "" FORCE)
 
 # Force static linkage to keep your application deployment standalone
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
