@@ -30,8 +30,15 @@ void GoogleBooksProvider::requestMetadata(const QString &isbn)
 void GoogleBooksProvider::handleReply(QNetworkReply *reply)
 {
     if (reply->error() != QNetworkReply::NoError) {
-        qWarning() << "[GoogleBooks System Trace] API Connection dropped:" << reply->errorString();
-        emit lookupFailed("Google Books operational failure.");
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QString message = statusCode == 429
+            ? "Google Books rate limit reached (HTTP 429). Try again shortly."
+            : statusCode > 0
+                ? QString("Google Books request failed (HTTP %1): %2")
+                      .arg(statusCode).arg(reply->errorString())
+                : "Google Books network request failed: " + reply->errorString();
+        qWarning() << "[GoogleBooks System Trace]:" << message;
+        emit lookupFailed(message);
         reply->deleteLater();
         return;
     }

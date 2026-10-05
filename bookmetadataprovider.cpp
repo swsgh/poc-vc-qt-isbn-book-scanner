@@ -97,6 +97,16 @@ void BookMetadataProvider::cacheCoverForBook(const QString &isbn, const QString 
         const QByteArray data = reply->readAll();
         const bool cached = reply->error() == QNetworkReply::NoError
             && CoverCache::saveImage(isbn, data);
+        if (!cached) {
+            const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const QString message = statusCode == 429
+                ? "Cover image rate limit reached (HTTP 429)."
+                : statusCode > 0
+                    ? QString("Cover image request failed (HTTP %1): %2")
+                          .arg(statusCode).arg(reply->errorString())
+                    : "Cover image download failed: " + reply->errorString();
+            emit lookupStatusChanged(message, true);
+        }
         reply->deleteLater();
         m_activeCoverDownloads.remove(isbn);
         if (cached) emit coverCached(isbn);
@@ -180,7 +190,10 @@ void BookMetadataProvider::handlePrimarySuccess(const BookInfo &info, const QStr
 
 void BookMetadataProvider::handlePrimaryFailure(const QString &errorMsg)
 {
-    emit lookupStatusChanged("Not found on Open Library. Querying Google Books fallback engine...", false);
+    const QString message = errorMsg.startsWith("No matching book")
+        ? "No match in Open Library. Trying Google Books..."
+        : errorMsg + " Trying Google Books...";
+    emit lookupStatusChanged(message, false);
     m_fallbackUsingGoogle = true;
     if (m_isRefreshingCovers) {
         m_refreshUsingGoogle = true;
@@ -259,6 +272,13 @@ void BookMetadataProvider::downloadCoverImage(const QString &url, const QString 
 void BookMetadataProvider::handleCoverDownloadFinished(QNetworkReply *reply, CoverSize size)
 {
     const QString downloadedUrl = reply->url().toString();
+    const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const QString failureMessage = statusCode == 429
+        ? "Cover image rate limit reached (HTTP 429)."
+        : statusCode > 0
+            ? QString("Cover image request failed (HTTP %1): %2")
+                  .arg(statusCode).arg(reply->errorString())
+            : "Cover image download failed: " + reply->errorString();
     reply->deleteLater();
     QByteArray data = reply->readAll();
 
@@ -276,23 +296,28 @@ void BookMetadataProvider::handleCoverDownloadFinished(QNetworkReply *reply, Cov
     }
 
     if (size == CoverSize::Large && !m_fallbackUrlMedium.isEmpty()) {
+        emit lookupStatusChanged(failureMessage + " Trying a medium cover...", false);
         downloadCoverImage(m_fallbackUrlMedium, "Large cover unavailable. Trying medium cover...",
                            CoverSize::Medium);
         return;
     }
     if (size != CoverSize::Small && !m_fallbackUrlSmall.isEmpty()) {
+        emit lookupStatusChanged(failureMessage + " Trying a small cover...", false);
         downloadCoverImage(m_fallbackUrlSmall, "Medium cover unavailable. Trying small cover...",
                            CoverSize::Small);
         return;
     }
 
     if (m_isRefreshingCovers) {
+        emit lookupStatusChanged(failureMessage, true);
         completeCoverRefresh(false);
     } else {
         if (!m_fallbackUsingGoogle) {
+            emit lookupStatusChanged(failureMessage + " Trying Google Books...", false);
             m_fallbackUsingGoogle = true;
             m_googleBooks->requestMetadata(m_lastScannedIsbn);
         } else {
+            emit lookupStatusChanged(failureMessage + " Book metadata will be saved without a cover.", true);
             m_pendingInfo.coverUrl.clear();
             emit bookDataReady(m_pendingInfo);
         }

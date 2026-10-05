@@ -198,7 +198,7 @@ bool BookApplicationController::submitManualIsbn(const QString &input)
             return character >= QLatin1Char('0') && character <= QLatin1Char('9');
         });
     if (!validLength || !containsOnlyDigits) {
-        setScannerStatus("ISBN must be a string of 10 or 13 numbers.");
+        setApplicationStatus("ISBN must be a string of 10 or 13 numbers.", 8000);
         return false;
     }
 
@@ -226,13 +226,14 @@ void BookApplicationController::setupConnections()
 {
     connect(m_scannerController, &BarcodeScannerController::isbnScanned, this, [this](const QString &isbn) {
         if (isbn == "ERROR: Camera permission denied.") {
-            setScannerStatus("No camera detected. Use the manual ISBN field instead.");
+            setApplicationStatus("No camera detected. Use the manual ISBN field instead.", 10000);
             return;
         }
+        setScannerStatus(QString("ISBN detected: %1").arg(isbn));
         m_metadataProvider->lookupIsbn(isbn);
     });
     connect(m_scannerController, &BarcodeScannerController::cameraUnavailable, this,
-            [this](const QString &message) { setScannerStatus(message); });
+            [this](const QString &message) { setApplicationStatus(message, 10000); });
     connect(m_metadataProvider, &BookMetadataProvider::lookupStatusChanged, this, &BookApplicationController::updateStatusLabel);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, this, &BookApplicationController::displayBookDetails);
     connect(m_metadataProvider, &BookMetadataProvider::bookDataReady, m_dbManager, &BookDatabaseManager::saveBookRecord);
@@ -499,12 +500,11 @@ void BookApplicationController::updateStatusLabel(const QString &text, bool isEr
     if (isError) {
         qCritical() << "[Scanner System Error Alert]:\n" << text;
     }
-    setScannerStatus(text);
+    setApplicationStatus(text, isError ? 15000 : 7000);
 }
 
 void BookApplicationController::displayBookDetails(const BookInfo &info)
 {
-    setScannerStatus(QString("📖 Successfully scanned: %1").arg(info.title));
     m_selectedBook = info;
     emit selectedBookChanged();
 }

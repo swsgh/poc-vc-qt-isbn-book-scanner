@@ -29,9 +29,15 @@ void OpenLibraryProvider::requestMetadata(const QString &isbn)
 void OpenLibraryProvider::handleReply(QNetworkReply *reply)
 {
     if (reply->error() != QNetworkReply::NoError) {
-        // Log details here directly
-        qWarning() << "[OpenLibrary System Trace] API Connection dropped:" << reply->errorString();
-        emit lookupFailed("404"); // Forward basic flag so fallback logic triggers smoothly
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QString message = statusCode == 429
+            ? "Open Library rate limit reached (HTTP 429). Trying Google Books instead."
+            : statusCode > 0
+                ? QString("Open Library request failed (HTTP %1): %2")
+                      .arg(statusCode).arg(reply->errorString())
+                : "Open Library network request failed: " + reply->errorString();
+        qWarning() << "[OpenLibrary System Trace]:" << message;
+        emit lookupFailed(message);
         reply->deleteLater();
         return;
     }
@@ -49,7 +55,7 @@ void OpenLibraryProvider::handleReply(QNetworkReply *reply)
     QString lookupKey = "ISBN:" + m_activeIsbn;
 
     if (!root.contains(lookupKey)) {
-        emit lookupFailed("404"); // Send a explicit short phrase to signal the fallback manager
+        emit lookupFailed("No matching book was found in Open Library.");
         return;
     }
 

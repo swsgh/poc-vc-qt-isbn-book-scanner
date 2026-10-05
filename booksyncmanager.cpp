@@ -19,8 +19,18 @@ QNetworkReply *postJsonRequest(QNetworkAccessManager *networkManager,
 
 QString replyErrorMessage(QNetworkReply *reply, const QString &fallback)
 {
+    const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (statusCode == 429) {
+        return "Too many requests (HTTP 429). Wait a moment before trying again.";
+    }
+
     const QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
     const QString detail = document.object().value("detail").toString();
+    if (statusCode > 0) {
+        const QString statusMessage = QString("HTTP %1").arg(statusCode);
+        return detail.isEmpty() ? statusMessage + ": " + reply->errorString()
+                                : statusMessage + ": " + detail;
+    }
     return detail.isEmpty() ? (reply->errorString().isEmpty() ? fallback : reply->errorString())
                             : detail;
 }
