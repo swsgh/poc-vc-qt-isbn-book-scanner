@@ -57,6 +57,13 @@ Pane {
                     visible: status === Image.Ready
                 }
 
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: coverImage.status === Image.Ready
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: coverZoom.open()
+                }
+
                 Label {
                     anchors.fill: parent
                     anchors.margins: 10
@@ -115,6 +122,40 @@ Pane {
             wrapMode: Text.WrapAnywhere
         }
 
+        }
+    }
+
+    Popup {
+        id: coverZoom
+        parent: Overlay.overlay
+        x: 0
+        y: 0
+        width: parent ? parent.width : 0
+        height: parent ? parent.height : 0
+        modal: true
+        dim: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        background: Rectangle {
+            color: "#e0101010"
+        }
+
+        contentItem: Item {
+            Image {
+                anchors.fill: parent
+                anchors.margins: 32
+                source: root.selection ? root.selection.selectedBookCoverSource : ""
+                fillMode: Image.PreserveAspectFit
+            }
+
+            ToolButton {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                text: "×"
+                Accessible.name: "Close enlarged cover"
+                onClicked: coverZoom.close()
+            }
         }
     }
 
