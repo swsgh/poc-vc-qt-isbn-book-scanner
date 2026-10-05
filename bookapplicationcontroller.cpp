@@ -235,6 +235,32 @@ bool BookApplicationController::submitManualIsbn(const QString &input)
     return true;
 }
 
+bool BookApplicationController::addManualBook(const QString &isbn, const QString &title,
+                                              const QString &authors)
+{
+    const QString normalizedIsbn = isbn.trimmed();
+    const QString normalizedTitle = title.trimmed();
+    if (normalizedTitle.isEmpty()) {
+        setApplicationStatus("Enter a title to add this book.", 8000);
+        return false;
+    }
+    if (m_dbManager->hasBookInLocalDatabase(normalizedIsbn)) {
+        setApplicationStatus("This ISBN is already on the shelf.", 8000);
+        return false;
+    }
+
+    BookInfo info;
+    info.found = true;
+    info.isbn = normalizedIsbn;
+    info.title = normalizedTitle;
+    info.authors = authors.trimmed();
+    m_dbManager->saveBookRecord(info);
+    if (!m_dbManager->getBookByIsbn(normalizedIsbn).found) return false;
+    selectBook(normalizedIsbn);
+    setApplicationStatus("Book added manually and queued for server sync.", 7000);
+    return true;
+}
+
 void BookApplicationController::lookupIsbnOnServer(const QString &isbn)
 {
     if (m_dbManager->hasBookInLocalDatabase(isbn)) {
@@ -289,6 +315,8 @@ void BookApplicationController::setupConnections()
                     }
                     setApplicationStatus(QString("Added %1 from the server.").arg(info.title), 5000);
                 });
+    connect(m_syncManager, &BookSyncManager::bookLookupNotFound,
+            this, &BookApplicationController::bookLookupNotFound);
         connect(m_syncManager, &BookSyncManager::bookLookupFailed, this,
             [this](const QString &message) { setApplicationStatus(message, 15000); });
         connect(m_syncManager, &BookSyncManager::bookLookupWarning, this,

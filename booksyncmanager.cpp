@@ -198,11 +198,16 @@ void BookSyncManager::lookupBookByIsbn(const QString &isbn)
     payload["isbn"] = isbn;
     const QNetworkRequest request = createAuthenticatedRequest("/api/books/lookup");
     QNetworkReply *reply = postJsonRequest(m_networkManager, request, payload);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, isbn]() {
         if (reply->error() != QNetworkReply::NoError) {
+            const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             const QString message = replyErrorMessage(reply, "Book lookup failed.");
             reply->deleteLater();
-            emit bookLookupFailed(message);
+            if (statusCode == 404) {
+                emit bookLookupNotFound(isbn);
+            } else {
+                emit bookLookupFailed(message);
+            }
             return;
         }
 

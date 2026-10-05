@@ -42,6 +42,8 @@ public:
     Q_INVOKABLE QString rememberedSyncUsername() const;
     Q_INVOKABLE bool shouldRememberSyncUsername() const;
     Q_INVOKABLE void setBookSearchText(const QString &text);
+    Q_INVOKABLE bool addManualBook(const QString &isbn, const QString &title,
+                                   const QString &authors);
 
     Q_PROPERTY(bool selectedBookVisible READ selectedBookVisible NOTIFY selectedBookChanged)
     Q_PROPERTY(QString selectedBookTitle READ selectedBookTitle NOTIFY selectedBookChanged)
@@ -78,6 +80,7 @@ signals:
     void syncStateChanged();
     void syncConnectionChanged();
     void applicationStatusChanged();
+    void bookLookupNotFound(const QString &isbn);
     void syncCredentialsSubmissionFinished(bool success, const QString &message);
 
 private slots:

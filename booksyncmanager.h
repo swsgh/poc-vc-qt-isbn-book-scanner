@@ -41,6 +41,7 @@ signals:
     void remoteBookUpdatesDownloaded(const QList<BookInfo> &booksToSave, const QStringList &isbnsToDelete);
     void networkErrorOccurred(const QString &errorMsg);
     void bookLookupSucceeded(const BookInfo &info);
+    void bookLookupNotFound(const QString &isbn);
     void bookLookupFailed(const QString &errorMsg);
     void bookLookupWarning(const QString &warning);
     void uploadSucceeded(const QString &isbn);

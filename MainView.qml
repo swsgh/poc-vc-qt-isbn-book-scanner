@@ -9,6 +9,7 @@ ApplicationWindow {
     property var appController: null
     property var bookCollection: null
     property var scannerController: null
+    property string manualEntryIsbn: ""
     readonly property bool keyboardVisible: Qt.platform.os === "android" && Qt.inputMethod.visible
     readonly property int pageMargin: 12
     readonly property int workspaceSpacing: 10
@@ -20,6 +21,15 @@ ApplicationWindow {
             const end = field.selectionEnd >= 0 ? field.selectionEnd : field.cursorPosition
             const query = field.text.slice(0, start) + field.preeditText + field.text.slice(end)
             appController.setBookSearchText(query)
+        }
+    }
+
+    Connections {
+        target: root.appController
+
+        function onBookLookupNotFound(isbn) {
+            root.manualEntryIsbn = isbn
+            manualBookDialog.open()
         }
     }
 
@@ -35,6 +45,63 @@ ApplicationWindow {
         spacing: root.workspaceSpacing
 
         RowLayout {
+
+    Dialog {
+        id: manualBookDialog
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        width: Math.min(420, parent.width - 32)
+        modal: true
+        title: "Add book details"
+
+        onOpened: {
+            manualTitle.clear()
+            manualAuthors.clear()
+            manualTitle.forceActiveFocus()
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 10
+
+            Label {
+                Layout.fillWidth: true
+                text: "No metadata was found for ISBN " + root.manualEntryIsbn
+                    + ". Enter a title to add it manually."
+                wrapMode: Text.WordWrap
+            }
+
+            TextField {
+                id: manualTitle
+                Layout.fillWidth: true
+                placeholderText: "Title (required)"
+            }
+
+            TextField {
+                id: manualAuthors
+                Layout.fillWidth: true
+                placeholderText: "Author (optional)"
+            }
+        }
+
+        footer: DialogButtonBox {
+            standardButtons: DialogButtonBox.Cancel
+
+            Button {
+                text: "Add to shelf"
+                enabled: manualTitle.text.trim().length > 0
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: {
+                    if (root.appController.addManualBook(
+                            root.manualEntryIsbn, manualTitle.text, manualAuthors.text)) {
+                        manualBookDialog.accept()
+                    }
+                }
+            }
+
+            onRejected: manualBookDialog.reject()
+        }
+    }
             Layout.fillWidth: true
             Layout.minimumWidth: root.cameraMinimumWidth
             spacing: 8
